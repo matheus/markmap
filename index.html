@@ -1,0 +1,937 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <title>MindMap Studio</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=DM+Mono:ital,wght@0,300;0,400;0,500;1,300&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;1,9..40,300&display=swap">
+    <script src="https://cdn.jsdelivr.net/npm/d3@7"></script>
+    <script src="https://cdn.jsdelivr.net/npm/markmap-lib@0.14.4/dist/browser/index.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/markmap-view@0.14.4/dist/index.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/js-yaml@4.1.0/dist/js-yaml.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/html-to-image@1.11.11/dist/html-to-image.min.js"></script>
+
+    <style>
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+        :root {
+            --bg: #0c0c0e;
+            --surface: #111114;
+            --border: rgba(255,255,255,0.06);
+            --text-dim: rgba(255,255,255,0.28);
+            --text-mid: rgba(255,255,255,0.55);
+            --text: rgba(255,255,255,0.88);
+            --accent: #c8ff00;
+            --accent-dim: rgba(200,255,0,0.08);
+            --red: #ff4455;
+            --font-mono: 'DM Mono', monospace;
+            --font-sans: 'DM Sans', sans-serif;
+            --panel-w: 320px;
+            --bar-h: 48px;
+        }
+
+        body, html {
+            height: 100%;
+            background: var(--bg);
+            color: var(--text);
+            font-family: var(--font-sans);
+            overflow: hidden;
+        }
+
+        /* ─── LAYOUT ─── */
+        #app { display: flex; height: 100vh; width: 100vw; position: relative; }
+
+        /* ─── TOPBAR ─── */
+        #topbar {
+            position: fixed; top: 0; left: 0; right: 0; z-index: 100;
+            height: var(--bar-h);
+            background: rgba(12,12,14,0.92);
+            backdrop-filter: blur(16px);
+            border-bottom: 1px solid var(--border);
+            display: flex; align-items: center; padding: 0 16px; gap: 12px;
+        }
+
+        .logo {
+            font-family: var(--font-mono);
+            font-size: 11px;
+            letter-spacing: 0.15em;
+            color: var(--accent);
+            text-transform: uppercase;
+            white-space: nowrap;
+        }
+
+        .dot-sep { width: 3px; height: 3px; border-radius: 50%; background: var(--border); }
+
+        .map-tabs {
+            display: flex; gap: 2px; flex: 1; overflow-x: auto;
+            scrollbar-width: none;
+        }
+        .map-tabs::-webkit-scrollbar { display: none; }
+
+        .tab {
+            display: flex; align-items: center; gap: 6px;
+            padding: 0 10px; height: 28px; border-radius: 6px;
+            font-size: 11.5px; font-family: var(--font-mono);
+            color: var(--text-mid); cursor: pointer; white-space: nowrap;
+            transition: all 0.15s; border: 1px solid transparent;
+            background: transparent;
+            position: relative;
+        }
+        .tab:hover { color: var(--text); background: rgba(255,255,255,0.04); }
+        .tab.active {
+            color: var(--accent); background: var(--accent-dim);
+            border-color: rgba(200,255,0,0.2);
+        }
+        .tab .close-tab {
+            opacity: 0; width: 14px; height: 14px; display: flex; align-items: center;
+            justify-content: center; border-radius: 3px; font-size: 10px;
+            transition: opacity 0.15s; color: var(--text-dim);
+        }
+        .tab:hover .close-tab { opacity: 1; }
+        .tab .close-tab:hover { background: rgba(255,68,85,0.3); color: var(--red); }
+
+        .tab-new {
+            padding: 0 10px; height: 28px; border-radius: 6px;
+            font-size: 16px; line-height: 1; color: var(--text-dim);
+            cursor: pointer; display: flex; align-items: center;
+            transition: all 0.15s; border: none; background: none;
+        }
+        .tab-new:hover { color: var(--accent); background: var(--accent-dim); }
+
+        .topbar-actions { display: flex; gap: 4px; margin-left: auto; }
+        .tb-btn {
+            height: 28px; padding: 0 10px; border-radius: 6px;
+            font-family: var(--font-mono); font-size: 10.5px; letter-spacing: 0.05em;
+            cursor: pointer; transition: all 0.15s; border: 1px solid var(--border);
+            background: transparent; color: var(--text-mid);
+        }
+        .tb-btn:hover { color: var(--text); border-color: rgba(255,255,255,0.15); background: rgba(255,255,255,0.04); }
+        .tb-btn.primary { color: var(--accent); border-color: rgba(200,255,0,0.25); background: var(--accent-dim); }
+        .tb-btn.primary:hover { background: rgba(200,255,0,0.14); }
+
+        /* ─── EDITOR PANEL ─── */
+        #panel {
+            position: fixed; top: var(--bar-h); left: 0; bottom: 0;
+            width: var(--panel-w);
+            background: var(--surface);
+            border-right: 1px solid var(--border);
+            display: flex; flex-direction: column;
+            z-index: 50;
+            transition: transform 0.25s cubic-bezier(0.4,0,0.2,1), opacity 0.25s;
+        }
+        #panel.hidden { transform: translateX(-100%); opacity: 0; pointer-events: none; }
+
+        .panel-header {
+            height: 36px; padding: 0 14px;
+            display: flex; align-items: center; justify-content: space-between;
+            border-bottom: 1px solid var(--border);
+            font-family: var(--font-mono); font-size: 9.5px; letter-spacing: 0.12em;
+            color: var(--text-dim); text-transform: uppercase;
+        }
+
+        #editor {
+            flex: 1; padding: 16px 14px;
+            font-family: var(--font-mono); font-size: 12.5px; line-height: 1.75;
+            background: transparent; color: rgba(255,255,255,0.65);
+            border: none; outline: none; resize: none;
+            tab-size: 2;
+            scrollbar-width: thin;
+            scrollbar-color: rgba(255,255,255,0.08) transparent;
+        }
+        #editor::placeholder { color: var(--text-dim); }
+
+        /* ─── VIEWER ─── */
+        #viewer {
+            position: fixed;
+            top: var(--bar-h); right: 0; bottom: 0;
+            left: var(--panel-w);
+            transition: left 0.25s cubic-bezier(0.4,0,0.2,1);
+            overflow: hidden;
+        }
+        #viewer.full { left: 0; }
+
+        svg#markmap { width: 100%; height: 100%; }
+
+        /* ─── PROGRESS ─── */
+        #progress {
+            position: absolute; bottom: 0; left: 0; right: 0;
+            height: 2px; background: rgba(255,255,255,0.04);
+            z-index: 10;
+        }
+        #progress-fill {
+            height: 100%; width: 0%;
+            background: var(--accent);
+            transition: width 0.4s cubic-bezier(0.4,0,0.2,1);
+            box-shadow: 0 0 8px var(--accent);
+        }
+
+        /* ─── FAB CLUSTER ─── */
+        #fabs {
+            position: fixed; bottom: 24px; right: 24px;
+            display: flex; flex-direction: column; gap: 8px; z-index: 200;
+        }
+        .fab {
+            width: 40px; height: 40px; border-radius: 12px;
+            border: 1px solid var(--border);
+            background: rgba(17,17,20,0.9); backdrop-filter: blur(12px);
+            color: var(--text-mid); cursor: pointer;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 15px; transition: all 0.15s;
+        }
+        .fab:hover { border-color: rgba(200,255,0,0.3); color: var(--accent); background: var(--accent-dim); }
+
+        /* ─── STATUS BAR ─── */
+        #statusbar {
+            position: fixed; bottom: 0; left: 0; right: 0; z-index: 50;
+            height: 22px;
+            background: rgba(12,12,14,0.95);
+            border-top: 1px solid var(--border);
+            display: flex; align-items: center; padding: 0 12px; gap: 16px;
+            font-family: var(--font-mono); font-size: 9px; color: var(--text-dim);
+        }
+        .status-item { display: flex; align-items: center; gap: 4px; }
+        .status-dot { width: 5px; height: 5px; border-radius: 50%; background: var(--accent); }
+        kbd {
+            background: rgba(255,255,255,0.05); border: 1px solid var(--border);
+            border-radius: 3px; padding: 0 4px; font-family: var(--font-mono);
+            font-size: 8px; color: var(--text-dim);
+        }
+
+        /* ─── MARKMAP OVERRIDES ─── */
+        .markmap-node-circle { r: 4px !important; }
+        .markmap-link { stroke-width: 1.5px !important; stroke-opacity: 0.6 !important; }
+        
+        /* Images inside markmap */
+        .markmap-node-text img {
+            display: block !important;
+            max-width: 180px !important;
+            max-height: 140px !important;
+            border-radius: 6px;
+            margin: 6px 0;
+            object-fit: contain;
+        }
+        foreignObject { overflow: visible !important; }
+
+        /* ─── TOAST ─── */
+        #toast {
+            position: fixed; bottom: 36px; left: 50%; transform: translateX(-50%) translateY(8px);
+            background: rgba(20,20,24,0.95); border: 1px solid var(--border);
+            backdrop-filter: blur(12px); border-radius: 8px;
+            padding: 8px 16px; font-family: var(--font-mono); font-size: 11px;
+            color: var(--text-mid); z-index: 999; opacity: 0;
+            transition: all 0.2s; pointer-events: none; white-space: nowrap;
+        }
+        #toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+        /* Root node always visible */
+        svg#markmap foreignObject { visibility: visible !important; overflow: visible !important; }
+        svg#markmap .markmap-node > foreignObject > div { opacity: 1 !important; }
+        svg#markmap g > foreignObject[width] { display: block !important; }
+
+                /* Scrollbar styling */
+        ::-webkit-scrollbar { width: 4px; height: 4px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.08); border-radius: 2px; }
+        /* ─── TAB RENAME INPUT ─── */
+        .tab-rename-input {
+            background: transparent;
+            border: none; outline: none;
+            font-family: var(--font-mono); font-size: 11.5px;
+            color: var(--accent);
+            width: 90px; min-width: 40px;
+            padding: 0;
+        }
+
+        /* ─── FONT CONFIG PANEL ─── */
+        #font-panel {
+            border-top: 1px solid var(--border);
+            padding: 12px 14px 14px;
+            display: flex; flex-direction: column; gap: 8px;
+            flex-shrink: 0;
+        }
+        .font-panel-title {
+            font-family: var(--font-mono); font-size: 9.5px; letter-spacing: 0.12em;
+            color: var(--text-dim); text-transform: uppercase; margin-bottom: 2px;
+        }
+        .font-field { display: flex; flex-direction: column; gap: 4px; }
+        .font-label {
+            font-family: var(--font-mono); font-size: 9px; color: var(--text-dim);
+            letter-spacing: 0.08em;
+        }
+        .font-input {
+            background: rgba(255,255,255,0.03);
+            border: 1px solid var(--border);
+            border-radius: 6px; padding: 6px 10px;
+            font-family: var(--font-mono); font-size: 11px;
+            color: var(--text-mid); outline: none;
+            transition: border-color 0.15s, color 0.15s;
+            width: 100%;
+        }
+        .font-input:focus { border-color: rgba(200,255,0,0.3); color: var(--text); }
+        .font-input::placeholder { color: rgba(255,255,255,0.16); }
+        .font-apply-btn {
+            margin-top: 2px; padding: 7px 10px; border-radius: 6px;
+            font-family: var(--font-mono); font-size: 10px; letter-spacing: 0.06em;
+            background: var(--accent-dim); border: 1px solid rgba(200,255,0,0.2);
+            color: var(--accent); cursor: pointer; transition: all 0.15s; text-align: center;
+        }
+        .font-apply-btn:hover { background: rgba(200,255,0,0.14); }
+        .font-preview {
+            font-size: 13px; color: var(--text-mid); padding: 4px 0 0;
+            min-height: 22px; transition: font-family 0.3s;
+            white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+        }
+
+    </style>
+</head>
+<body>
+
+<!-- TOP BAR -->
+<div id="topbar">
+    <span class="logo">MindMap</span>
+    <div class="dot-sep"></div>
+    <div class="map-tabs" id="tabs-container"></div>
+    <button class="tab-new" onclick="newMap()" title="Novo mapa (Ctrl+T)">+</button>
+    <div class="dot-sep"></div>
+    <div class="topbar-actions">
+        <button class="tb-btn" onclick="downloadMD()" title="Salvar .md">↓ .md</button>
+        <button class="tb-btn primary" onclick="exportImage()" title="Exportar imagem">⬡ PNG</button>
+    </div>
+</div>
+
+<!-- EDITOR PANEL -->
+<div id="panel">
+    <div class="panel-header">
+        <span>markdown</span>
+        <span id="char-count">0 chars</span>
+    </div>
+    <textarea id="editor" placeholder="# Seu mapa mental&#10;## Tópico 1&#10;### Subtópico&#10;## Tópico 2&#10;&#10;Use !IMG[url] para imagens"></textarea>
+    <div id="font-panel">
+        <div class="font-panel-title">Tipografia</div>
+        <div class="font-field">
+            <span class="font-label">URL Google Fonts</span>
+            <input class="font-input" id="font-url-input"
+                placeholder="https://fonts.googleapis.com/css2?family=…"
+                autocomplete="off" spellcheck="false">
+        </div>
+        <div class="font-field">
+            <span class="font-label">Nome da família</span>
+            <input class="font-input" id="font-name-input"
+                placeholder="ex: Roboto Slab"
+                autocomplete="off" spellcheck="false">
+        </div>
+        <div class="font-preview" id="font-preview-text">Aa — O rato roeu a roupa</div>
+        <div class="font-apply-btn" onclick="applyFontToMap()">↳ Aplicar ao mapa</div>
+    </div>
+</div>
+
+<!-- VIEWER -->
+<div id="viewer">
+    <div id="progress"><div id="progress-fill"></div></div>
+    <svg id="markmap"></svg>
+</div>
+
+<!-- FABs -->
+<div id="fabs">
+    <button class="fab" onclick="toggleEditor()" title="Editor (E)">⊞</button>
+    <button class="fab" onclick="resetZoom()" title="Fit (F)">⊕</button>
+</div>
+
+<!-- STATUS BAR -->
+<div id="statusbar">
+    <div class="status-item"><div class="status-dot"></div><span id="status-text">pronto</span></div>
+    <div class="status-item"><kbd>→</kbd> expandir · <kbd>←</kbd> recolher · <kbd>E</kbd> editor · <kbd>F</kbd> fit</div>
+    <div class="status-item" style="margin-left:auto" id="status-nodes">0 nós</div>
+</div>
+
+<!-- TOAST -->
+<div id="toast"></div>
+
+<script>
+// ─── STATE ───────────────────────────────────────────────────────────────────
+const STORAGE_KEY = 'mindmap_studio_v1';
+const { Transformer, loadCSS, loadJS, Markmap } = window.markmap;
+// Create transformer without plugins that fetch external assets (KaTeX, Prism, etc.)
+// We only need the core markdown→tree transform.
+const transformer = new Transformer([]);
+
+let mm = null;
+let currentRoot = null;
+let editorVisible = true;
+let maps = []; // [{id, name, content}]
+let activeId = null;
+let renderTimeout = null;
+
+const editorEl = document.getElementById('editor');
+const progressFill = document.getElementById('progress-fill');
+const statusText = document.getElementById('status-text');
+const statusNodes = document.getElementById('status-nodes');
+const charCount = document.getElementById('char-count');
+const toastEl = document.getElementById('toast');
+const tabsContainer = document.getElementById('tabs-container');
+const panelEl = document.getElementById('panel');
+const viewerEl = document.getElementById('viewer');
+
+// ─── DEFAULT CONTENT ─────────────────────────────────────────────────────────
+const DEFAULT_MAP = `---
+tema: dark
+cor_linhas: "#c8ff00"
+cor_destaque: "#c8ff00"
+cor_fonte: "rgba(255,255,255,0.82)"
+font_family: "DM Sans"
+---
+# 🗺️ MindMap Studio
+## 📐 Sintaxe
+### Markdown padrão
+#### \`# H1\` para raiz
+#### \`## H2\` para ramos
+#### \`### H3\` para folhas
+### Imagens
+#### !IMG[https://picsum.photos/160/80?random=1]
+#### !IMG[https://picsum.photos/160/80?random=2]
+### Links
+#### [YouTube](https://youtube.com)
+## ⌨️ Atalhos
+### → Expandir nó
+### ← Recolher nó
+### E — Toggle editor
+### F — Fit/zoom
+### Ctrl+T — Novo mapa
+## 🎨 Configuração YAML
+### tema: dark / white
+### cor_linhas: "#hexcode"
+### cor_destaque: "#hexcode"
+### font_family: "Nome da fonte"`;
+
+// ─── STORAGE ─────────────────────────────────────────────────────────────────
+function loadState() {
+    try {
+        const saved = JSON.parse(localStorage.getItem(STORAGE_KEY));
+        if (saved?.maps?.length) {
+            maps = saved.maps;
+            activeId = saved.activeId || maps[0].id;
+            return;
+        }
+    } catch(e) {}
+    // First run
+    maps = [{ id: uid(), name: 'Mapa 1', content: DEFAULT_MAP }];
+    activeId = maps[0].id;
+}
+
+function saveState() {
+    try {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify({ maps, activeId }));
+    } catch(e) { toast('⚠ Erro ao salvar no localStorage'); }
+}
+
+function uid() { return Date.now().toString(36) + Math.random().toString(36).slice(2,6); }
+
+// ─── TAB MANAGEMENT ──────────────────────────────────────────────────────────
+function renderTabs() {
+    tabsContainer.innerHTML = '';
+    maps.forEach(m => {
+        const tab = document.createElement('div');
+        tab.className = 'tab' + (m.id === activeId ? ' active' : '');
+        tab.dataset.id = m.id;
+        tab.innerHTML = `<span class="tab-label">${escHtml(m.name)}</span><span class="close-tab" data-id="${m.id}">✕</span>`;
+
+        tab.addEventListener('click', e => {
+            if (e.target.classList.contains('close-tab')) { closeMap(e.target.dataset.id); return; }
+            if (e.target.classList.contains('tab-rename-input')) return;
+            switchMap(m.id);
+        });
+
+        // Double-click on label to rename
+        tab.querySelector('.tab-label').addEventListener('dblclick', e => {
+            e.stopPropagation();
+            startRename(tab, m.id);
+        });
+
+        tabsContainer.appendChild(tab);
+    });
+}
+
+function startRename(tab, id) {
+    const label = tab.querySelector('.tab-label');
+    const m = maps.find(x => x.id === id);
+    const input = document.createElement('input');
+    input.className = 'tab-rename-input';
+    input.value = m.name;
+    input.style.width = Math.max(60, label.offsetWidth) + 'px';
+    label.replaceWith(input);
+    input.focus();
+    input.select();
+
+    function commit() {
+        const val = input.value.trim() || m.name;
+        m.name = val;
+        saveState();
+        renderTabs();
+    }
+    input.addEventListener('blur', commit);
+    input.addEventListener('keydown', e => {
+        if (e.key === 'Enter') { e.preventDefault(); input.blur(); }
+        if (e.key === 'Escape') { input.value = m.name; input.blur(); }
+        e.stopPropagation();
+    });
+    input.addEventListener('click', e => e.stopPropagation());
+}
+
+function escHtml(s) { return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+function switchMap(id) {
+    if (activeId === id) return;
+    // Save current
+    const cur = maps.find(m => m.id === activeId);
+    if (cur) cur.content = editorEl.value;
+    activeId = id;
+    const m = maps.find(m => m.id === id);
+    editorEl.value = m.content;
+    renderTabs();
+    scheduleRender();
+    saveState();
+    syncFontPanel();
+}
+
+function newMap() {
+    const cur = maps.find(m => m.id === activeId);
+    if (cur) cur.content = editorEl.value;
+    const m = { id: uid(), name: `Mapa ${maps.length + 1}`, content: `# Novo Mapa\n## Tópico 1\n### Subtópico\n## Tópico 2` };
+    maps.push(m);
+    activeId = m.id;
+    editorEl.value = m.content;
+    renderTabs();
+    scheduleRender();
+    saveState();
+}
+
+function closeMap(id) {
+    if (maps.length === 1) { toast('Mínimo 1 mapa'); return; }
+    maps = maps.filter(m => m.id !== id);
+    if (activeId === id) {
+        activeId = maps[maps.length - 1].id;
+        editorEl.value = maps.find(m => m.id === activeId).content;
+        scheduleRender();
+    }
+    renderTabs();
+    saveState();
+}
+
+// ─── RENDER ──────────────────────────────────────────────────────────────────
+function scheduleRender(delay = 300) {
+    clearTimeout(renderTimeout);
+    renderTimeout = setTimeout(render, delay);
+}
+
+function preprocessMarkdown(md) {
+    // Strip YAML frontmatter (--- ... ---) so markmap doesn't render it as nodes
+    if (md.trimStart().startsWith('---')) {
+        const end = md.indexOf('---', 3);
+        if (end !== -1) md = md.slice(end + 3).trimStart();
+    }
+
+    // Convert !IMG[url] to inline <img> — only valid http(s) URLs
+    md = md.replace(/!IMG\[([^\]]+)\]/g, (_, url) => {
+        url = url.trim();
+        if (!isValidImageUrl(url)) return `_(url inválida)_`;
+        return `<img src="${url}" style="max-width:180px;max-height:130px;border-radius:6px;display:block;margin:4px 0">`;
+    });
+
+    // Sanitize native markdown images — strip non-http srcs to avoid 404s
+    md = md.replace(/!\[([^\]]*)\]\(([^)]+)\)/g, (match, alt, src) => {
+        return isValidImageUrl(src.trim()) ? match : (alt ? `_(${alt})_` : '');
+    });
+
+    return md;
+}
+
+function isValidImageUrl(url) {
+    try {
+        const u = new URL(url);
+        return u.protocol === 'http:' || u.protocol === 'https:' || u.protocol === 'data:';
+    } catch {
+        return false;
+    }
+}
+
+function extractConfig(md) {
+    if (!md.startsWith('---')) return {};
+    const parts = md.split('---');
+    if (parts.length < 3) return {};
+    try { return jsyaml.load(parts[1]) || {}; } catch(e) { return {}; }
+}
+
+function applyTheme(config) {
+    const dark = config.tema !== 'white';
+    const bg = dark ? '#0c0c0e' : '#f8f8f5';
+    const linkColor = config.cor_linhas || (dark ? '#c8ff00' : '#1a1a2e');
+    const fontColor = config.cor_fonte || (dark ? 'rgba(255,255,255,0.82)' : '#1a1a2e');
+    const accent = config.cor_destaque || linkColor;
+    const font = config.font_family || 'DM Sans';
+
+    // Load custom font if a google font url is given
+    if (config.google_font_url && !document.querySelector(`link[href="${config.google_font_url}"]`)) {
+        const l = document.createElement('link'); l.rel = 'stylesheet'; l.href = config.google_font_url;
+        document.head.appendChild(l);
+    }
+
+    progressFill.style.background = accent;
+    document.getElementById('theme-css')?.remove();
+    const s = document.createElement('style');
+    s.id = 'theme-css';
+    s.textContent = `
+        #viewer { background: ${bg}; }
+        svg#markmap { background: ${bg}; }
+        .markmap-node-text {
+            fill: ${fontColor} !important;
+            font-family: '${font}', var(--font-sans) !important;
+            font-size: 14px !important;
+        }
+        .markmap-link {
+            stroke: ${linkColor} !important;
+            stroke-width: 1.5px !important;
+            stroke-opacity: 0.5 !important;
+        }
+        .markmap-node-circle {
+            fill: ${linkColor} !important;
+            stroke: none !important;
+        }
+        /* Highlight nodes with (!!) */
+        g[data-path*="(!!)"] .markmap-node-text { fill: ${accent} !important; font-weight: 600 !important; }
+        /* Force all node foreignObjects visible — markmap sometimes hides root */
+        .markmap-node > foreignObject,
+        .markmap-node > foreignObject > div,
+        .markmap-node > foreignObject > div > * {
+            visibility: visible !important;
+            opacity: 1 !important;
+            display: block !important;
+        }
+    `;
+    document.head.appendChild(s);
+}
+
+async function render() {
+    const raw = editorEl.value;
+    const md = preprocessMarkdown(raw);
+    const config = extractConfig(md);
+    applyTheme(config);
+
+    statusText.textContent = 'renderizando…';
+
+    let root, features;
+    try {
+        ({ root, features } = transformer.transform(md));
+    } catch(e) {
+        statusText.textContent = 'erro de sintaxe';
+        return;
+    }
+
+    // Assets (KaTeX, Prism, etc.) intentionally skipped to avoid 404s.
+    // We handle all styling via our own theme CSS.
+
+    currentRoot = root;
+    // Fold ALL branch nodes except root so keyboard navigation works step by step
+    foldAll(currentRoot);
+    const allNodes = flatNodes(root);
+
+    if (!mm) {
+        mm = Markmap.create('#markmap', {
+            autoFit: false,
+            duration: 400,
+            maxWidth: 280,
+            spacingVertical: 8,
+            spacingHorizontal: 60,
+            paddingX: 14,
+            zoom: true,
+            pan: true,
+        }, currentRoot);
+        mm.fit();
+    } else {
+        mm.setData(currentRoot);
+    }
+
+    updateProgress();
+    const nodeCount = allNodes.length;
+    statusText.textContent = 'pronto';
+    statusNodes.textContent = `${nodeCount} nós`;
+    charCount.textContent = `${raw.length} chars`;
+    // Ensure root node text is never hidden (markmap may set visibility via inline attr)
+    setTimeout(forceRootVisible, 50);
+    setTimeout(forceRootVisible, 500);
+}
+
+function forceRootVisible() {
+    const svg = document.getElementById('markmap');
+    if (!svg) return;
+    // Remove any inline visibility:hidden on foreignObjects (markmap sets these via D3)
+    svg.querySelectorAll('foreignObject').forEach(fo => {
+        fo.style.removeProperty('visibility');
+        fo.style.removeProperty('display');
+        fo.setAttribute('visibility', 'visible');
+        const div = fo.querySelector('div');
+        if (div) { div.style.removeProperty('opacity'); div.style.removeProperty('display'); }
+    });
+}
+
+function flatNodes(node, list = []) {
+    list.push(node);
+    if (node.children) node.children.forEach(c => flatNodes(c, list));
+    return list;
+}
+
+// Fold every branch node except the root itself
+function foldAll(root) {
+    if (!root.children) return;
+    root.children.forEach(child => foldAllRecursive(child));
+}
+function foldAllRecursive(node) {
+    if (!node.payload) node.payload = {};
+    if (node.children?.length > 0) {
+        node.payload.fold = 1;
+        node.children.forEach(foldAllRecursive);
+    }
+}
+
+function updateProgress() {
+    if (!currentRoot) return;
+    const nodes = flatNodes(currentRoot);
+    const branches = nodes.filter(n => n.children?.length > 0);
+    if (!branches.length) return;
+    const opened = branches.filter(n => !n.payload?.fold || n.payload.fold === 0).length;
+    progressFill.style.width = `${(opened / branches.length) * 100}%`;
+}
+
+// ─── STEP NAVIGATION ─────────────────────────────────────────────────────────
+
+// Pan + zoom smoothly so that `node` sits at the center of the viewer.
+// We read the node's (x,y) from its SVG <g> element after markmap renders.
+function centerOnNode(node) {
+    // Give markmap one frame to position the DOM, then animate.
+    requestAnimationFrame(() => {
+        try {
+            const svg = document.getElementById('markmap');
+            const viewerRect = svg.getBoundingClientRect();
+            const cx = viewerRect.width / 2;
+            const cy = viewerRect.height / 2;
+
+            // markmap stores the current transform on the inner <g class="markmap">
+            const gMain = svg.querySelector('g.markmap');
+            if (!gMain) return;
+
+            // Find the <g> element whose data matches this node.
+            // markmap assigns data-path attributes we can use, or we match by index.
+            // Safest: iterate all node <g> elements and find the one whose __data__ matches.
+            const nodeGs = Array.from(svg.querySelectorAll('g.markmap-node'));
+            let targetG = null;
+            for (const g of nodeGs) {
+                const d = g.__data__;
+                if (d && d === node) { targetG = g; break; }
+            }
+            if (!targetG) return;
+
+            // Get node center in SVG coords
+            const nodeRect = targetG.getBoundingClientRect();
+            const nodeCx = nodeRect.left + nodeRect.width / 2 - viewerRect.left;
+            const nodeCy = nodeRect.top + nodeRect.height / 2 - viewerRect.top;
+
+            // Get the current D3 zoom transform
+            const currentTransform = d3.zoomTransform(svg);
+            const k = currentTransform.k;
+
+            // How much we need to shift (in screen px) to center the node
+            const dx = cx - nodeCx;
+            const dy = cy - nodeCy;
+
+            const newTransform = d3.zoomIdentity
+                .translate(currentTransform.x + dx, currentTransform.y + dy)
+                .scale(k);
+
+            // Apply animated transition via D3 zoom
+            d3.select(svg)
+                .transition()
+                .duration(450)
+                .ease(d3.easeCubicInOut)
+                .call(mm.zoom.transform, newTransform);
+        } catch(e) {
+            // Silently fail — centering is best-effort
+        }
+    });
+}
+
+function stepForward() {
+    const nodes = flatNodes(currentRoot);
+    const node = nodes.find(n => n.children?.length > 0 && n.payload?.fold);
+    if (node) {
+        node.payload.fold = 0;
+        mm.setData(currentRoot);
+        updateProgress();
+        setTimeout(forceRootVisible, 50);
+        // Wait for markmap animation to start, then center
+        setTimeout(() => centerOnNode(node), 80);
+    }
+}
+
+function stepBackward() {
+    const nodes = flatNodes(currentRoot).reverse();
+    const node = nodes.find(n => n.children?.length > 0 && !n.payload?.fold && n.depth > 0);
+    if (node) {
+        node.payload.fold = 1;
+        mm.setData(currentRoot);
+        updateProgress();
+        setTimeout(() => centerOnNode(node), 80);
+    }
+}
+
+// ─── UI ACTIONS ──────────────────────────────────────────────────────────────
+function toggleEditor() {
+    editorVisible = !editorVisible;
+    panelEl.classList.toggle('hidden', !editorVisible);
+    viewerEl.classList.toggle('full', !editorVisible);
+    setTimeout(() => mm?.fit(), 280);
+}
+
+function resetZoom() { mm?.fit(); }
+
+async function exportImage() {
+    toast('Exportando…');
+    try {
+        const node = document.getElementById('viewer');
+        const dataUrl = await htmlToImage.toPng(node, { quality: 1, pixelRatio: 2 });
+        const a = document.createElement('a');
+        const m = maps.find(m => m.id === activeId);
+        a.download = `${m?.name || 'mapa'}.png`;
+        a.href = dataUrl; a.click();
+        toast('✓ Imagem exportada');
+    } catch(e) { toast('⚠ Erro ao exportar: ' + e.message); }
+}
+
+function downloadMD() {
+    const m = maps.find(m => m.id === activeId);
+    const blob = new Blob([editorEl.value], { type: 'text/markdown' });
+    const a = document.createElement('a');
+    a.download = `${m?.name || 'mapa'}.md`;
+    a.href = URL.createObjectURL(blob); a.click();
+    toast('✓ .md salvo');
+}
+
+function toast(msg, duration = 2200) {
+    toastEl.textContent = msg;
+    toastEl.classList.add('show');
+    setTimeout(() => toastEl.classList.remove('show'), duration);
+}
+
+// ─── EVENT LISTENERS ─────────────────────────────────────────────────────────
+editorEl.addEventListener('input', () => {
+    const cur = maps.find(m => m.id === activeId);
+    if (cur) cur.content = editorEl.value;
+    charCount.textContent = `${editorEl.value.length} chars`;
+    scheduleRender();
+    saveState();
+});
+
+window.addEventListener('keydown', e => {
+    if (document.activeElement === editorEl) return;
+    if (e.key === 'ArrowRight' || e.key === ' ') { e.preventDefault(); stepForward(); }
+    else if (e.key === 'ArrowLeft') { e.preventDefault(); stepBackward(); }
+    else if (e.key.toLowerCase() === 'e') toggleEditor();
+    else if (e.key.toLowerCase() === 'f') resetZoom();
+    else if (e.ctrlKey && e.key.toLowerCase() === 't') { e.preventDefault(); newMap(); }
+});
+
+window.addEventListener('resize', () => mm?.fit());
+
+
+// ─── FONT PANEL ──────────────────────────────────────────────────────────────
+const fontUrlInput = document.getElementById('font-url-input');
+const fontNameInput = document.getElementById('font-name-input');
+const fontPreview = document.getElementById('font-preview-text');
+
+// Live preview as user types font name
+fontNameInput.addEventListener('input', () => {
+    const name = fontNameInput.value.trim();
+    fontPreview.style.fontFamily = name ? `'${name}', sans-serif` : '';
+});
+
+// Load font URL for preview when user blurs the URL field
+fontUrlInput.addEventListener('blur', () => {
+    const url = fontUrlInput.value.trim();
+    if (!url) return;
+    if (!document.querySelector(`link[href="${url}"]`)) {
+        const l = document.createElement('link'); l.rel = 'stylesheet'; l.href = url;
+        document.head.appendChild(l);
+    }
+    // Update preview family if name isn't set yet, try to parse from URL
+    if (!fontNameInput.value.trim()) {
+        const match = url.match(/family=([^:&]+)/);
+        if (match) {
+            const guessed = decodeURIComponent(match[1]).replace(/\+/g, ' ').split(':')[0];
+            fontNameInput.value = guessed;
+            fontPreview.style.fontFamily = `'${guessed}', sans-serif`;
+        }
+    }
+});
+
+// Sync font fields FROM current map's YAML when switching maps
+function syncFontPanel() {
+    const m = maps.find(x => x.id === activeId);
+    if (!m) return;
+    const config = extractConfig(m.content);
+    fontUrlInput.value = config.google_font_url || '';
+    fontNameInput.value = config.font_family || '';
+    fontPreview.style.fontFamily = config.font_family ? `'${config.font_family}', sans-serif` : '';
+}
+
+// Apply font config into the map's YAML front-matter
+function applyFontToMap() {
+    const url = fontUrlInput.value.trim();
+    const name = fontNameInput.value.trim();
+    if (!name) { toast('⚠ Informe o nome da família'); return; }
+
+    let md = editorEl.value;
+    const hasFrontmatter = md.startsWith('---');
+
+    function setYamlKey(yaml, key, value) {
+        const re = new RegExp(`^(${key}\s*:.*)$`, 'm');
+        const line = `${key}: "${value}"`;
+        return re.test(yaml) ? yaml.replace(re, line) : yaml + `\n${line}`;
+    }
+
+    if (hasFrontmatter) {
+        const parts = md.split('---');
+        // parts[0] = '', parts[1] = yaml, parts[2..] = body
+        let yaml = parts[1];
+        if (url) yaml = setYamlKey(yaml, 'google_font_url', url);
+        yaml = setYamlKey(yaml, 'font_family', name);
+        parts[1] = yaml;
+        md = parts.join('---');
+    } else {
+        let front = '---\n';
+        if (url) front += `google_font_url: "${url}"\n`;
+        front += `font_family: "${name}"\n---\n`;
+        md = front + md;
+    }
+
+    editorEl.value = md;
+    const cur = maps.find(x => x.id === activeId);
+    if (cur) cur.content = md;
+    saveState();
+    scheduleRender(50);
+
+    // Load font if needed
+    if (url && !document.querySelector(`link[href="${url}"]`)) {
+        const l = document.createElement('link'); l.rel = 'stylesheet'; l.href = url;
+        document.head.appendChild(l);
+    }
+    fontPreview.style.fontFamily = `'${name}', sans-serif`;
+    toast(`✓ Fonte "${name}" aplicada`);
+}
+
+// ─── INIT ─────────────────────────────────────────────────────────────────────
+loadState();
+editorEl.value = maps.find(m => m.id === activeId)?.content || '';
+renderTabs();
+render();
+syncFontPanel();
+</script>
+</body>
+</html>     
