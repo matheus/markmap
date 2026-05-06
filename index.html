@@ -5,6 +5,7 @@
     <title>MindMap Studio</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=DM+Mono:ital,wght@0,300;0,400;0,500;1,300&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;1,9..40,300&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@600&display=swap">
     <script src="https://cdn.jsdelivr.net/npm/d3@7"></script>
     <script src="https://cdn.jsdelivr.net/npm/markmap-lib@0.14.4/dist/browser/index.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/markmap-view@0.14.4/dist/index.js"></script>
@@ -25,7 +26,7 @@
             --accent-dim: rgba(200,255,0,0.08);
             --red: #ff4455;
             --font-mono: 'DM Mono', monospace;
-            --font-sans: 'DM Sans', sans-serif;
+            --font-sans: 'Inter', sans-serif;
             --panel-w: 320px;
             --bar-h: 48px;
         }
@@ -35,21 +36,14 @@
             background: var(--bg);
             color: var(--text);
             font-family: var(--font-sans);
+            font-weight: 600;
             overflow: hidden;
         }
 
         /* ─── LAYOUT ─── */
         #app { display: flex; height: 100vh; width: 100vw; position: relative; }
 
-        /* ─── TOPBAR ─── */
-        #topbar {
-            position: fixed; top: 0; left: 0; right: 0; z-index: 100;
-            height: var(--bar-h);
-            background: rgba(12,12,14,0.92);
-            backdrop-filter: blur(16px);
-            border-bottom: 1px solid var(--border);
-            display: flex; align-items: center; padding: 0 16px; gap: 12px;
-        }
+        
 
         .logo {
             font-family: var(--font-mono);
@@ -65,8 +59,10 @@
         .map-tabs {
             display: flex; gap: 2px; flex: 1; overflow-x: auto;
             scrollbar-width: none;
+            padding-right: 8px;
         }
         .map-tabs::-webkit-scrollbar { display: none; }
+
 
         .tab {
             display: flex; align-items: center; gap: 6px;
@@ -111,7 +107,7 @@
 
         /* ─── EDITOR PANEL ─── */
         #panel {
-            position: fixed; top: var(--bar-h); left: 0; bottom: 0;
+            position: fixed; top: 0; left: 0; bottom: 0;
             width: var(--panel-w);
             background: var(--surface);
             border-right: 1px solid var(--border);
@@ -122,11 +118,11 @@
         #panel.hidden { transform: translateX(-100%); opacity: 0; pointer-events: none; }
 
         .panel-header {
-            height: 36px; padding: 0 14px;
+            height: 36px; padding: 0 8px 0 14px;
             display: flex; align-items: center; justify-content: space-between;
             border-bottom: 1px solid var(--border);
-            font-family: var(--font-mono); font-size: 9.5px; letter-spacing: 0.12em;
-            color: var(--text-dim); text-transform: uppercase;
+            font-family: var(--font-mono); font-size: 9.5px;
+            color: var(--text-dim);
         }
 
         #editor {
@@ -143,12 +139,13 @@
         /* ─── VIEWER ─── */
         #viewer {
             position: fixed;
-            top: var(--bar-h); right: 0; bottom: 0;
+            top: 0; right: 0; bottom: 0;
             left: var(--panel-w);
             transition: left 0.25s cubic-bezier(0.4,0,0.2,1);
             overflow: hidden;
         }
         #viewer.full { left: 0; }
+
 
         svg#markmap { width: 100%; height: 100%; }
 
@@ -199,6 +196,27 @@
 
         /* ─── MARKMAP OVERRIDES ─── */
         .markmap-node-circle { r: 4px !important; }
+/* Focus / fade effect for presentations */
+.markmap-node { transition: opacity 0.3s ease; }
+.markmap-node-text { transition: opacity 0.3s ease, fill 0.3s ease; }
+
+/* When something is focused, dim everything else */
+#viewer .markmap-node { opacity: 0.1 !important; transition: opacity 0.4s !important; }
+#viewer .markmap-link { stroke-opacity: 0.05 !important; transition: stroke-opacity 0.4s !important; }
+
+/* The focused node and its ancestors stay bright */
+#viewer .markmap-node.focused { opacity: 1 !important; }
+#viewer .markmap-node.focused .markmap-node-text { opacity: 1 !important; font-weight: 700 !important; }
+#viewer .markmap-node.focused-ancestor { opacity: 0.8 !important; }
+
+/* If nothing is focused, show everything */
+#viewer:not(:has(.focused)) .markmap-node { opacity: 1 !important; }
+#viewer:not(:has(.focused)) .markmap-link { stroke-opacity: 0.6 !important; }
+
+
+
+/* Highlight lines leading to the focused node if possible (Markmap doesn't easily allow this via CSS alone, but we dim others) */
+
         .markmap-link { stroke-width: 1.5px !important; stroke-opacity: 0.6 !important; }
         
         /* Images inside markmap */
@@ -242,87 +260,22 @@
             padding: 0;
         }
 
-        /* ─── FONT CONFIG PANEL ─── */
-        #font-panel {
-            border-top: 1px solid var(--border);
-            padding: 12px 14px 14px;
-            display: flex; flex-direction: column; gap: 8px;
-            flex-shrink: 0;
-        }
-        .font-panel-title {
-            font-family: var(--font-mono); font-size: 9.5px; letter-spacing: 0.12em;
-            color: var(--text-dim); text-transform: uppercase; margin-bottom: 2px;
-        }
-        .font-field { display: flex; flex-direction: column; gap: 4px; }
-        .font-label {
-            font-family: var(--font-mono); font-size: 9px; color: var(--text-dim);
-            letter-spacing: 0.08em;
-        }
-        .font-input {
-            background: rgba(255,255,255,0.03);
-            border: 1px solid var(--border);
-            border-radius: 6px; padding: 6px 10px;
-            font-family: var(--font-mono); font-size: 11px;
-            color: var(--text-mid); outline: none;
-            transition: border-color 0.15s, color 0.15s;
-            width: 100%;
-        }
-        .font-input:focus { border-color: rgba(200,255,0,0.3); color: var(--text); }
-        .font-input::placeholder { color: rgba(255,255,255,0.16); }
-        .font-apply-btn {
-            margin-top: 2px; padding: 7px 10px; border-radius: 6px;
-            font-family: var(--font-mono); font-size: 10px; letter-spacing: 0.06em;
-            background: var(--accent-dim); border: 1px solid rgba(200,255,0,0.2);
-            color: var(--accent); cursor: pointer; transition: all 0.15s; text-align: center;
-        }
-        .font-apply-btn:hover { background: rgba(200,255,0,0.14); }
-        .font-preview {
-            font-size: 13px; color: var(--text-mid); padding: 4px 0 0;
-            min-height: 22px; transition: font-family 0.3s;
-            white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-        }
+
 
     </style>
 </head>
 <body>
 
-<!-- TOP BAR -->
-<div id="topbar">
-    <span class="logo">MindMap</span>
-    <div class="dot-sep"></div>
-    <div class="map-tabs" id="tabs-container"></div>
-    <button class="tab-new" onclick="newMap()" title="Novo mapa (Ctrl+T)">+</button>
-    <div class="dot-sep"></div>
-    <div class="topbar-actions">
-        <button class="tb-btn" onclick="downloadMD()" title="Salvar .md">↓ .md</button>
-        <button class="tb-btn primary" onclick="exportImage()" title="Exportar imagem">⬡ PNG</button>
-    </div>
-</div>
+
 
 <!-- EDITOR PANEL -->
 <div id="panel">
     <div class="panel-header">
-        <span>markdown</span>
-        <span id="char-count">0 chars</span>
+        <div id="tabs-container" class="map-tabs"></div>
+        <button class="tab-new" onclick="newMap()" title="Novo mapa">+</button>
+        <span id="char-count" style="margin-left: auto;">0 chars</span>
     </div>
     <textarea id="editor" placeholder="# Seu mapa mental&#10;## Tópico 1&#10;### Subtópico&#10;## Tópico 2&#10;&#10;Use !IMG[url] para imagens"></textarea>
-    <div id="font-panel">
-        <div class="font-panel-title">Tipografia</div>
-        <div class="font-field">
-            <span class="font-label">URL Google Fonts</span>
-            <input class="font-input" id="font-url-input"
-                placeholder="https://fonts.googleapis.com/css2?family=…"
-                autocomplete="off" spellcheck="false">
-        </div>
-        <div class="font-field">
-            <span class="font-label">Nome da família</span>
-            <input class="font-input" id="font-name-input"
-                placeholder="ex: Roboto Slab"
-                autocomplete="off" spellcheck="false">
-        </div>
-        <div class="font-preview" id="font-preview-text">Aa — O rato roeu a roupa</div>
-        <div class="font-apply-btn" onclick="applyFontToMap()">↳ Aplicar ao mapa</div>
-    </div>
 </div>
 
 <!-- VIEWER -->
@@ -334,6 +287,7 @@
 <!-- FABs -->
 <div id="fabs">
     <button class="fab" onclick="toggleEditor()" title="Editor (E)">⊞</button>
+<button class="fab" onclick="exportImage()" title="Export PNG">⬡</button>
     <button class="fab" onclick="resetZoom()" title="Fit (F)">⊕</button>
 </div>
 
@@ -351,16 +305,23 @@
 // ─── STATE ───────────────────────────────────────────────────────────────────
 const STORAGE_KEY = 'mindmap_studio_v1';
 const { Transformer, loadCSS, loadJS, Markmap } = window.markmap;
+// Track focused node for centering/fade
+let currentFocusedNode = null;
+// Editor hidden by default for presentation mode
+let editorVisible = false;
+
 // Create transformer without plugins that fetch external assets (KaTeX, Prism, etc.)
 // We only need the core markdown→tree transform.
 const transformer = new Transformer([]);
 
 let mm = null;
 let currentRoot = null;
-let editorVisible = true;
+let themeColors = { link: '', accent: '' };
+
 let maps = []; // [{id, name, content}]
 let activeId = null;
 let renderTimeout = null;
+let currentNavIndex = 0;
 
 const editorEl = document.getElementById('editor');
 const progressFill = document.getElementById('progress-fill');
@@ -368,9 +329,21 @@ const statusText = document.getElementById('status-text');
 const statusNodes = document.getElementById('status-nodes');
 const charCount = document.getElementById('char-count');
 const toastEl = document.getElementById('toast');
-const tabsContainer = document.getElementById('tabs-container');
 const panelEl = document.getElementById('panel');
 const viewerEl = document.getElementById('viewer');
+const tabsContainer = document.getElementById('tabs-container');
+
+// ─── INITIALIZATION ──────────────────────────────────────────────────────────
+function init() {
+    // Hide panel and set viewer to full-screen for presentation mode by default
+    panelEl.classList.add('hidden');
+    viewerEl.classList.add('full');
+    loadState();
+    editorEl.value = maps.find(m => m.id === activeId)?.content || '';
+    renderTabs();
+    render();
+}
+
 
 // ─── DEFAULT CONTENT ─────────────────────────────────────────────────────────
 const DEFAULT_MAP = `---
@@ -490,7 +463,6 @@ function switchMap(id) {
     renderTabs();
     scheduleRender();
     saveState();
-    syncFontPanel();
 }
 
 function newMap() {
@@ -564,16 +536,14 @@ function extractConfig(md) {
 function applyTheme(config) {
     const dark = config.tema !== 'white';
     const bg = dark ? '#0c0c0e' : '#f8f8f5';
-    const linkColor = config.cor_linhas || (dark ? '#c8ff00' : '#1a1a2e');
+    // Default to a more neutral color for lines if not specified, to avoid neon overload
+    const linkColor = config.cor_linhas || (dark ? 'rgba(255,255,255,0.15)' : 'rgba(0,0,0,0.15)');
     const fontColor = config.cor_fonte || (dark ? 'rgba(255,255,255,0.82)' : '#1a1a2e');
-    const accent = config.cor_destaque || linkColor;
-    const font = config.font_family || 'DM Sans';
+    const accent = config.cor_destaque || (dark ? '#c8ff00' : '#000');
+    const font = config.font_family || 'Inter';
 
-    // Load custom font if a google font url is given
-    if (config.google_font_url && !document.querySelector(`link[href="${config.google_font_url}"]`)) {
-        const l = document.createElement('link'); l.rel = 'stylesheet'; l.href = config.google_font_url;
-        document.head.appendChild(l);
-    }
+    themeColors.link = linkColor;
+    themeColors.accent = accent;
 
     progressFill.style.background = accent;
     document.getElementById('theme-css')?.remove();
@@ -586,19 +556,28 @@ function applyTheme(config) {
             fill: ${fontColor} !important;
             font-family: '${font}', var(--font-sans) !important;
             font-size: 14px !important;
+            font-weight: 600 !important;
         }
         .markmap-link {
             stroke: ${linkColor} !important;
             stroke-width: 1.5px !important;
-            stroke-opacity: 0.5 !important;
+            stroke-opacity: 1 !important;
         }
         .markmap-node-circle {
             fill: ${linkColor} !important;
             stroke: none !important;
         }
         /* Highlight nodes with (!!) */
-        g[data-path*="(!!)"] .markmap-node-text { fill: ${accent} !important; font-weight: 600 !important; }
-        /* Force all node foreignObjects visible — markmap sometimes hides root */
+        g[data-path*="(!!)"] .markmap-node-text { 
+            fill: ${accent} !important; 
+            font-weight: 700 !important;
+            text-shadow: 0 0 12px ${accent}44;
+        }
+        g[data-path*="(!!)"] .markmap-node-circle {
+            fill: ${accent} !important;
+        }
+        
+        /* Force all node foreignObjects visible */
         .markmap-node > foreignObject,
         .markmap-node > foreignObject > div,
         .markmap-node > foreignObject > div > * {
@@ -610,10 +589,13 @@ function applyTheme(config) {
     document.head.appendChild(s);
 }
 
+
 async function render() {
+    nodeCounter = 0; 
+    currentNavIndex = 0; // Reset navigation index
     const raw = editorEl.value;
     const md = preprocessMarkdown(raw);
-    const config = extractConfig(md);
+    const config = extractConfig(raw); // Use raw to capture YAML frontmatter
     applyTheme(config);
 
     statusText.textContent = 'renderizando…';
@@ -630,6 +612,10 @@ async function render() {
     // We handle all styling via our own theme CSS.
 
     currentRoot = root;
+    linkParents(currentRoot);
+    currentFocusedNode = currentRoot;
+    currentNavIndex = 0; // Ensure index starts at root
+
     // Fold ALL branch nodes except root so keyboard navigation works step by step
     foldAll(currentRoot);
     const allNodes = flatNodes(root);
@@ -644,9 +630,16 @@ async function render() {
             paddingX: 14,
             zoom: true,
             pan: true,
+            color: (node) => {
+                const content = node.data?.content || node.content || '';
+                return content.includes('(!!)') ? themeColors.accent : themeColors.link;
+            }
         }, currentRoot);
         mm.fit();
     } else {
+        mm.setOptions({
+            color: (node) => (node.data?.content || node.content || '').includes('(!!)') ? themeColors.accent : themeColors.link
+        });
         mm.setData(currentRoot);
     }
 
@@ -655,11 +648,14 @@ async function render() {
     statusText.textContent = 'pronto';
     statusNodes.textContent = `${nodeCount} nós`;
     charCount.textContent = `${raw.length} chars`;
-    // Ensure root node text is never hidden (markmap may set visibility via inline attr)
     setTimeout(forceRootVisible, 50);
     setTimeout(forceRootVisible, 500);
+    // Center and highlight the focused node (root initially)
+    if (currentFocusedNode) {
+        centerOnNode(currentFocusedNode);
+        highlightNode(currentFocusedNode);
+    }
 }
-
 function forceRootVisible() {
     const svg = document.getElementById('markmap');
     if (!svg) return;
@@ -706,39 +702,42 @@ function updateProgress() {
 // Pan + zoom smoothly so that `node` sits at the center of the viewer.
 // We read the node's (x,y) from its SVG <g> element after markmap renders.
 function centerOnNode(node) {
-    // Give markmap one frame to position the DOM, then animate.
-    requestAnimationFrame(() => {
+    if (!mm || !node) return;
+    
+    // Give a short delay for DOM to stabilize
+    setTimeout(() => {
         try {
             const svg = document.getElementById('markmap');
+            if (!svg) return;
+            
+            // Markmap-view 0.14+ usually has a view object with zoom
+            const zoom = mm.zoom;
+            if (!zoom) return;
+
             const viewerRect = svg.getBoundingClientRect();
             const cx = viewerRect.width / 2;
             const cy = viewerRect.height / 2;
 
-            // markmap stores the current transform on the inner <g class="markmap">
-            const gMain = svg.querySelector('g.markmap');
-            if (!gMain) return;
-
-            // Find the <g> element whose data matches this node.
-            // markmap assigns data-path attributes we can use, or we match by index.
-            // Safest: iterate all node <g> elements and find the one whose __data__ matches.
             const nodeGs = Array.from(svg.querySelectorAll('g.markmap-node'));
             let targetG = null;
             for (const g of nodeGs) {
                 const d = g.__data__;
-                if (d && d === node) { targetG = g; break; }
+                // Check d directly or d.data (D3 hierarchy node)
+                if (d && (d.id === node.id || d.data?.id === node.id || d === node)) {
+                    targetG = g; 
+                    break; 
+                }
             }
+
             if (!targetG) return;
 
-            // Get node center in SVG coords
             const nodeRect = targetG.getBoundingClientRect();
             const nodeCx = nodeRect.left + nodeRect.width / 2 - viewerRect.left;
             const nodeCy = nodeRect.top + nodeRect.height / 2 - viewerRect.top;
 
-            // Get the current D3 zoom transform
             const currentTransform = d3.zoomTransform(svg);
             const k = currentTransform.k;
 
-            // How much we need to shift (in screen px) to center the node
             const dx = cx - nodeCx;
             const dy = cy - nodeCy;
 
@@ -746,39 +745,58 @@ function centerOnNode(node) {
                 .translate(currentTransform.x + dx, currentTransform.y + dy)
                 .scale(k);
 
-            // Apply animated transition via D3 zoom
-            d3.select(svg)
-                .transition()
-                .duration(450)
+            const selection = d3.select(svg);
+            selection.transition()
+                .duration(800)
                 .ease(d3.easeCubicInOut)
-                .call(mm.zoom.transform, newTransform);
-        } catch(e) {
-            // Silently fail — centering is best-effort
-        }
-    });
+                .call(zoom.transform, newTransform);
+                
+        } catch(e) { console.error("Centering error:", e); }
+    }, 150);
 }
 
 function stepForward() {
-    const nodes = flatNodes(currentRoot);
-    const node = nodes.find(n => n.children?.length > 0 && n.payload?.fold);
-    if (node) {
-        node.payload.fold = 0;
-        mm.setData(currentRoot);
-        updateProgress();
-        setTimeout(forceRootVisible, 50);
-        // Wait for markmap animation to start, then center
-        setTimeout(() => centerOnNode(node), 80);
+    if (!currentRoot) return;
+    const all = flatNodes(currentRoot);
+    if (currentNavIndex < all.length - 1) {
+        currentNavIndex++;
+        const next = all[currentNavIndex];
+        
+        let p = next.parent;
+        let neededUpdate = false;
+        while (p) {
+            if (p.payload?.fold) {
+                p.payload.fold = 0;
+                neededUpdate = true;
+            }
+            p = p.parent;
+        }
+        
+        if (neededUpdate) {
+            mm.setData(currentRoot);
+            updateProgress();
+            setTimeout(() => {
+                currentFocusedNode = next;
+                centerOnNode(next);
+                highlightNode(next);
+            }, 150);
+        } else {
+            currentFocusedNode = next;
+            centerOnNode(next);
+            highlightNode(next);
+        }
     }
 }
 
 function stepBackward() {
-    const nodes = flatNodes(currentRoot).reverse();
-    const node = nodes.find(n => n.children?.length > 0 && !n.payload?.fold && n.depth > 0);
-    if (node) {
-        node.payload.fold = 1;
-        mm.setData(currentRoot);
-        updateProgress();
-        setTimeout(() => centerOnNode(node), 80);
+    if (!currentRoot) return;
+    const all = flatNodes(currentRoot);
+    if (currentNavIndex > 0) {
+        currentNavIndex--;
+        const prev = all[currentNavIndex];
+        currentFocusedNode = prev;
+        centerOnNode(prev);
+        highlightNode(prev);
     }
 }
 
@@ -790,7 +808,56 @@ function toggleEditor() {
     setTimeout(() => mm?.fit(), 280);
 }
 
+let nodeCounter = 0;
+function linkParents(node, parent = null) {
+    node.parent = parent;
+    node.id = ++nodeCounter; // Add unique ID for tracking
+    if (node.children) {
+        node.children.forEach(child => linkParents(child, node));
+    }
+}
+
 function resetZoom() { mm?.fit(); }
+
+function highlightNode(node) {
+    const svg = document.getElementById('markmap');
+    if (!svg) return;
+
+    // Remove previous highlights
+    svg.querySelectorAll('.markmap-node.focused').forEach(el => el.classList.remove('focused'));
+    svg.querySelectorAll('.markmap-node.focused-ancestor').forEach(el => el.classList.remove('focused-ancestor'));
+
+    if (!node) return;
+
+    const nodeGs = Array.from(svg.querySelectorAll('g.markmap-node'));
+    let targetG = null;
+    
+    for (const g of nodeGs) {
+        const d = g.__data__;
+        // Match by our unique ID or reference, checking both direct and D3 hierarchy data
+        if (d && (d.id === node.id || d.data?.id === node.id || d === node)) {
+            targetG = g;
+            break;
+        }
+    }
+
+    if (targetG) {
+        targetG.classList.add('focused');
+        
+        // Highlight ancestors
+        let parent = node.parent;
+        while (parent) {
+            for (const g of nodeGs) {
+                const d = g.__data__;
+                if (d && (d.id === parent.id || d.data?.id === parent.id || d === parent)) {
+                    g.classList.add('focused-ancestor');
+                    break;
+                }
+            }
+            parent = parent.parent;
+        }
+    }
+}
 
 async function exportImage() {
     toast('Exportando…');
@@ -841,97 +908,11 @@ window.addEventListener('keydown', e => {
 window.addEventListener('resize', () => mm?.fit());
 
 
-// ─── FONT PANEL ──────────────────────────────────────────────────────────────
-const fontUrlInput = document.getElementById('font-url-input');
-const fontNameInput = document.getElementById('font-name-input');
-const fontPreview = document.getElementById('font-preview-text');
 
-// Live preview as user types font name
-fontNameInput.addEventListener('input', () => {
-    const name = fontNameInput.value.trim();
-    fontPreview.style.fontFamily = name ? `'${name}', sans-serif` : '';
-});
-
-// Load font URL for preview when user blurs the URL field
-fontUrlInput.addEventListener('blur', () => {
-    const url = fontUrlInput.value.trim();
-    if (!url) return;
-    if (!document.querySelector(`link[href="${url}"]`)) {
-        const l = document.createElement('link'); l.rel = 'stylesheet'; l.href = url;
-        document.head.appendChild(l);
-    }
-    // Update preview family if name isn't set yet, try to parse from URL
-    if (!fontNameInput.value.trim()) {
-        const match = url.match(/family=([^:&]+)/);
-        if (match) {
-            const guessed = decodeURIComponent(match[1]).replace(/\+/g, ' ').split(':')[0];
-            fontNameInput.value = guessed;
-            fontPreview.style.fontFamily = `'${guessed}', sans-serif`;
-        }
-    }
-});
-
-// Sync font fields FROM current map's YAML when switching maps
-function syncFontPanel() {
-    const m = maps.find(x => x.id === activeId);
-    if (!m) return;
-    const config = extractConfig(m.content);
-    fontUrlInput.value = config.google_font_url || '';
-    fontNameInput.value = config.font_family || '';
-    fontPreview.style.fontFamily = config.font_family ? `'${config.font_family}', sans-serif` : '';
-}
-
-// Apply font config into the map's YAML front-matter
-function applyFontToMap() {
-    const url = fontUrlInput.value.trim();
-    const name = fontNameInput.value.trim();
-    if (!name) { toast('⚠ Informe o nome da família'); return; }
-
-    let md = editorEl.value;
-    const hasFrontmatter = md.startsWith('---');
-
-    function setYamlKey(yaml, key, value) {
-        const re = new RegExp(`^(${key}\s*:.*)$`, 'm');
-        const line = `${key}: "${value}"`;
-        return re.test(yaml) ? yaml.replace(re, line) : yaml + `\n${line}`;
-    }
-
-    if (hasFrontmatter) {
-        const parts = md.split('---');
-        // parts[0] = '', parts[1] = yaml, parts[2..] = body
-        let yaml = parts[1];
-        if (url) yaml = setYamlKey(yaml, 'google_font_url', url);
-        yaml = setYamlKey(yaml, 'font_family', name);
-        parts[1] = yaml;
-        md = parts.join('---');
-    } else {
-        let front = '---\n';
-        if (url) front += `google_font_url: "${url}"\n`;
-        front += `font_family: "${name}"\n---\n`;
-        md = front + md;
-    }
-
-    editorEl.value = md;
-    const cur = maps.find(x => x.id === activeId);
-    if (cur) cur.content = md;
-    saveState();
-    scheduleRender(50);
-
-    // Load font if needed
-    if (url && !document.querySelector(`link[href="${url}"]`)) {
-        const l = document.createElement('link'); l.rel = 'stylesheet'; l.href = url;
-        document.head.appendChild(l);
-    }
-    fontPreview.style.fontFamily = `'${name}', sans-serif`;
-    toast(`✓ Fonte "${name}" aplicada`);
-}
 
 // ─── INIT ─────────────────────────────────────────────────────────────────────
-loadState();
-editorEl.value = maps.find(m => m.id === activeId)?.content || '';
-renderTabs();
-render();
-syncFontPanel();
+init();
+
 </script>
 </body>
 </html>     
