@@ -6,6 +6,7 @@
     <title>Markmap — Mapas Mentais</title>
     <meta name="description" content="Crie mapas mentais elegantes a partir de texto Markdown, de forma simples e rápida.">
     <meta name="theme-color" content="#a78bfa">
+    <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="apple-mobile-web-app-title" content="Markmap">
@@ -512,7 +513,7 @@ const transformer = new Transformer([]);
 
 let mm = null;
 let currentRoot = null;
-let themeColors = { link: '', accent: '' };
+let themeColors = { link: '', accent: '', maxWidth: 260 };
 
 let maps = [];
 let activeId = null;
@@ -725,6 +726,7 @@ function applyTheme(config) {
 
     themeColors.link = linkColor;
     themeColors.accent = accent;
+    themeColors.maxWidth = maxW;
 
     document.getElementById('theme-css')?.remove();
     const s = document.createElement('style');
@@ -804,7 +806,7 @@ async function render() {
         mm = Markmap.create('#markmap', {
             autoFit: false,
             duration: 450,
-            maxWidth: maxW,
+            maxWidth: themeColors.maxWidth,
             spacingVertical: 10,
             spacingHorizontal: 64,
             paddingX: 14,
@@ -818,7 +820,7 @@ async function render() {
         mm.fit();
     } else {
         mm.setOptions({
-            maxWidth: maxW,
+            maxWidth: themeColors.maxWidth,
             color: (node) => (node.data?.content || node.content || '').includes('(!!)') ? themeColors.accent : themeColors.link
         });
         mm.setData(currentRoot);

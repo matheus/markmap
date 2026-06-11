@@ -42,10 +42,10 @@ self.addEventListener('activate', event => {
 
 // ── Fetch: cache-first para recursos conhecidos, network-first pro resto ──
 self.addEventListener('fetch', event => {
-  // Ignora requisições não-GET
+  // Ignora requisições não-GET e schemes não suportados (chrome-extension, etc.)
   if (event.request.method !== 'GET') return;
-
   const url = new URL(event.request.url);
+  if (url.protocol !== 'http:' && url.protocol !== 'https:') return;
 
   // Para fontes do Google, usa cache-first puro
   if (url.hostname === 'fonts.googleapis.com' || url.hostname === 'fonts.gstatic.com') {
