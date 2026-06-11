@@ -475,26 +475,30 @@
 <!-- FABs -->
 <div id="fabs">
     <button class="fab" id="fab-editor" onclick="toggleEditor()" title="Editor">
-        <span class="fab-tip">Editor  <kbd>E</kbd></span>
+        <span class="fab-tip">Editor&nbsp;&nbsp;<kbd>E</kbd></span>
         <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
     </button>
+    <button class="fab" id="fab-expand" onclick="toggleExpandAll()" title="Expandir tudo">
+        <span class="fab-tip">Expandir tudo&nbsp;&nbsp;<kbd>A</kbd></span>
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3H5a2 2 0 0 0-2 2v3"/><path d="M21 8V5a2 2 0 0 0-2-2h-3"/><path d="M3 16v3a2 2 0 0 0 2 2h3"/><path d="M16 21h3a2 2 0 0 0 2-2v-3"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>
+    </button>
     <button class="fab" onclick="resetZoom()">
-        <span class="fab-tip">Fit  <kbd>F</kbd></span>
+        <span class="fab-tip">Fit&nbsp;&nbsp;<kbd>F</kbd></span>
         <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M15 3h6v6"/><path d="M9 21H3v-6"/><path d="M21 3l-7 7"/><path d="M3 21l7-7"/></svg>
     </button>
     <button class="fab" onclick="stepBackward()">
-        <span class="fab-tip">Anterior  <kbd>←</kbd></span>
+        <span class="fab-tip">Anterior&nbsp;&nbsp;<kbd>←</kbd></span>
         <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>
     </button>
     <button class="fab" onclick="stepForward()">
-        <span class="fab-tip">Próximo  <kbd>→</kbd></span>
+        <span class="fab-tip">Próximo&nbsp;&nbsp;<kbd>→</kbd></span>
         <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
     </button>
 </div>
 
 <!-- FOCUS HINT -->
 <div id="focus-hint">
-    <kbd>←</kbd><kbd>→</kbd> navegar · <kbd>E</kbd> editor · <kbd>Esc</kbd> sair do foco
+    <kbd>←</kbd><kbd>→</kbd> navegar · <kbd>A</kbd> expandir · <kbd>E</kbd> editor · <kbd>Esc</kbd> sair do foco
 </div>
 
 <!-- TOAST -->
@@ -521,6 +525,8 @@ let activeId = null;
 let renderTimeout = null;
 let currentNavIndex = 0;
 let nodeCounter = 0;
+let isFirstRender = true;   // controla se deve recolher o mapa ao renderizar
+let isAllExpanded = false;  // rastrea se o mapa está totalmente expandido
 
 const editorEl     = document.getElementById('editor');
 const progressFill = document.getElementById('progress-fill');
@@ -651,6 +657,7 @@ function switchMap(id) {
     activeId = id;
     const m = maps.find(m => m.id === id);
     editorEl.value = m.content;
+    isFirstRender = true;  // força recolher ao trocar de mapa
     renderTabs();
     scheduleRender();
     saveState();
@@ -663,6 +670,7 @@ function newMap() {
     maps.push(m);
     activeId = m.id;
     editorEl.value = m.content;
+    isFirstRender = true;  // força recolher no novo mapa
     renderTabs();
     scheduleRender();
     saveState();
@@ -788,9 +796,27 @@ function applyTheme(config) {
     document.head.appendChild(s);
 }
 
+// Captura o estado de fold atual antes de re-renderizar
+function captureFoldState(node, map = new Map()) {
+    if (!node) return map;
+    map.set(node.content || node.data?.content || '', node.payload?.fold ?? 0);
+    if (node.children) node.children.forEach(c => captureFoldState(c, map));
+    return map;
+}
+
+// Restaura o estado de fold baseado no conteúdo do nó
+function restoreFoldState(node, map) {
+    if (!node) return;
+    const key = node.content || node.data?.content || '';
+    if (map.has(key)) {
+        if (!node.payload) node.payload = {};
+        node.payload.fold = map.get(key);
+    }
+    if (node.children) node.children.forEach(c => restoreFoldState(c, map));
+}
+
 async function render() {
     nodeCounter = 0;
-    currentNavIndex = 0;
     const raw = editorEl.value;
     const md = preprocessMarkdown(raw);
     const config = extractConfig(raw);
@@ -801,34 +827,75 @@ async function render() {
         ({ root, features } = transformer.transform(md));
     } catch(e) { return; }
 
+    // Salva o estado de fold ANTES de trocar currentRoot
+    const prevFoldState = currentRoot ? captureFoldState(currentRoot) : null;
+
     currentRoot = root;
     linkParents(currentRoot);
-    currentFocusedNode = currentRoot;
-    foldAll(currentRoot);
-    const allNodes = flatNodes(root);
 
-    if (!mm) {
-        mm = Markmap.create('#markmap', {
-            autoFit: false,
-            duration: 450,
-            maxWidth: themeColors.maxWidth,
-            spacingVertical: 10,
-            spacingHorizontal: 64,
-            paddingX: 14,
-            zoom: true,
-            pan: true,
-            color: (node) => {
-                const content = node.data?.content || node.content || '';
-                return content.includes('(!!)') ? themeColors.accent : themeColors.link;
-            }
-        }, currentRoot);
-        mm.fit();
+    if (isFirstRender || !prevFoldState) {
+        // Primeiro render: recolhe tudo (comportamento original)
+        currentNavIndex = 0;
+        currentFocusedNode = currentRoot;
+        foldAll(currentRoot);
+        isFirstRender = false;
+
+        isAllExpanded = checkAllExpanded(currentRoot);
+        updateExpandBtn();
+
+        if (!mm) {
+            mm = Markmap.create('#markmap', {
+                autoFit: false,
+                duration: 450,
+                maxWidth: themeColors.maxWidth,
+                spacingVertical: 10,
+                spacingHorizontal: 64,
+                paddingX: 14,
+                zoom: true,
+                pan: true,
+                color: (node) => {
+                    const content = node.data?.content || node.content || '';
+                    return content.includes('(!!)') ? themeColors.accent : themeColors.link;
+                }
+            }, currentRoot);
+            mm.fit();
+        } else {
+            mm.setOptions({
+                maxWidth: themeColors.maxWidth,
+                color: (node) => (node.data?.content || node.content || '').includes('(!!)') ? themeColors.accent : themeColors.link
+            });
+            mm.setData(currentRoot);
+            mm.fit();
+        }
+
+        if (currentFocusedNode) {
+            centerOnNode(currentFocusedNode);
+            highlightNode(currentFocusedNode);
+        }
+
     } else {
+        // Re-render por edição: restaura o estado anterior SEM mover a câmera
+        restoreFoldState(currentRoot, prevFoldState);
+
+        isAllExpanded = checkAllExpanded(currentRoot);
+        updateExpandBtn();
+
+        // Preserva a transformação de zoom/pan atual antes de setData
+        const svg = document.getElementById('markmap');
+        const savedTransform = svg ? d3.zoomTransform(svg) : null;
+
         mm.setOptions({
             maxWidth: themeColors.maxWidth,
             color: (node) => (node.data?.content || node.content || '').includes('(!!)') ? themeColors.accent : themeColors.link
         });
         mm.setData(currentRoot);
+
+        // Restaura a posição da câmera após setData
+        if (savedTransform && svg && mm.zoom) {
+            requestAnimationFrame(() => {
+                d3.select(svg).call(mm.zoom.transform, savedTransform);
+            });
+        }
     }
 
     updateProgress();
@@ -837,10 +904,6 @@ async function render() {
     setTimeout(forceRootVisible, 500);
     setTimeout(injectSketchFilter, 80);   // caneta theme
     setTimeout(injectSketchFilter, 520);  // re-inject after animation
-    if (currentFocusedNode) {
-        centerOnNode(currentFocusedNode);
-        highlightNode(currentFocusedNode);
-    }
 }
 
 // ─── SKETCH FILTER (tema: caneta) ────────────────────────────────────────────
@@ -910,6 +973,63 @@ function foldAllRecursive(node) {
     if (node.children?.length > 0) {
         node.payload.fold = 1;
         node.children.forEach(foldAllRecursive);
+    }
+}
+
+function expandAllRecursive(node) {
+    if (!node.payload) node.payload = {};
+    node.payload.fold = 0;
+    if (node.children) node.children.forEach(expandAllRecursive);
+}
+
+function checkAllExpanded(node) {
+    if (node.children?.length > 0) {
+        if (node.payload?.fold) return false;
+        return node.children.every(checkAllExpanded);
+    }
+    return true;
+}
+
+function expandAll() {
+    if (!currentRoot || !mm) return;
+    expandAllRecursive(currentRoot);
+    isAllExpanded = true;
+    updateExpandBtn();
+    mm.setData(currentRoot);
+    updateProgress();
+    setTimeout(() => mm?.fit(), 150);
+    toast('Mapa totalmente expandido');
+}
+
+function collapseAll() {
+    if (!currentRoot || !mm) return;
+    foldAll(currentRoot);
+    isAllExpanded = false;
+    updateExpandBtn();
+    currentNavIndex = 0;
+    currentFocusedNode = currentRoot;
+    mm.setData(currentRoot);
+    updateProgress();
+    setTimeout(() => mm?.fit(), 150);
+    toast('Mapa recolhido');
+}
+
+function toggleExpandAll() {
+    if (isAllExpanded) collapseAll();
+    else expandAll();
+}
+
+function updateExpandBtn() {
+    const btn = document.getElementById('fab-expand');
+    if (!btn) return;
+    if (isAllExpanded) {
+        btn.classList.add('active');
+        btn.querySelector('.fab-tip').innerHTML = 'Recolher&nbsp;&nbsp;<kbd>A</kbd>';
+        btn.title = 'Recolher tudo';
+    } else {
+        btn.classList.remove('active');
+        btn.querySelector('.fab-tip').innerHTML = 'Expandir tudo&nbsp;&nbsp;<kbd>A</kbd>';
+        btn.title = 'Expandir tudo';
     }
 }
 
@@ -1101,6 +1221,7 @@ window.addEventListener('keydown', e => {
     else if (e.key === 'ArrowLeft') { e.preventDefault(); stepBackward(); }
     else if (e.key.toLowerCase() === 'e') toggleEditor();
     else if (e.key.toLowerCase() === 'f') resetZoom();
+    else if (e.key.toLowerCase() === 'a') { e.preventDefault(); toggleExpandAll(); }
     else if (e.ctrlKey && e.key.toLowerCase() === 't') { e.preventDefault(); newMap(); }
 });
 
