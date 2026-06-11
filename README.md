@@ -1,48 +1,98 @@
-# 🗺️ MindMap Studio
+# ✦ Markmap
 
-Uma ferramenta web moderna e minimalista para criação de mapas mentais dinâmicos a partir de Markdown. Transforme suas ideias estruturadas em visualizações interativas em segundos.
-
-![MindMap Studio Preview](https://raw.githubusercontent.com/markmap/markmap/master/packages/markmap-cli/assets/demo.png) *(Ilustrativo: o projeto utiliza a biblioteca Markmap para renderização)*
+Crie mapas mentais elegantes a partir de texto Markdown. Minimalista, leve e bonito — tudo em um único arquivo `index.html`.
 
 ## ✨ Funcionalidades
 
-- **Markdown para Mapa Mental**: Conversão em tempo real de sintaxe Markdown (`#`, `##`, `###`) em estruturas de árvore visuais.
-- **Gerenciamento de Abas**: Crie e alterne entre múltiplos mapas mentais. O progresso é salvo automaticamente no seu navegador (`localStorage`).
-- **Personalização via YAML**: Ajuste cores de linhas, destaques, temas (Dark/White) e fontes diretamente no cabeçalho do arquivo.
-- **Conteúdo Rico**: Suporte para links e imagens (via sintaxe padrão ou customizada `!IMG[url]`).
-- **Navegação Inteligente**:
-  - Zoom e Pan fluídos.
-  - Expansão e recolhimento de nós.
-  - Navegação passo a passo pelos tópicos.
-- **Tipografia Customizada**: Painel integrado para importar e aplicar qualquer fonte do Google Fonts.
-- **Exportação**:
-  - Salve seus mapas como arquivos `.md`.
-  - Exporte a visualização final como imagem **PNG** de alta qualidade.
-- **Interface Premium**: Design elegante com modo escuro nativo, efeitos de glassmorphism e animações suaves.
+- **Markdown → Mapa Mental** em tempo real — escreva e veja o mapa se formar enquanto digita
+- **Sintaxe de listas** — use `-` com indentação para criar hierarquias, muito mais intuitivo que `##` e `###`
+- **Modo Foco** — oculta toda a interface para apresentações e gravações de tela sem distração
+- **Navegação passo a passo** — o mapa começa fechado e você revela nó por nó com as setas do teclado
+- **Múltiplos mapas** — crie e alterne entre mapas, tudo salvo automaticamente no navegador
+- **Personalização via YAML** — controle cores, fonte e tema diretamente no topo do arquivo
+- **Conteúdo rico** — links, imagens (`!IMG[url]`), **negrito**, *itálico* e `código inline`
+- **Exportação** — PNG em alta resolução ou arquivo `.md` para editar depois
+- **Interface premium** — dark mode com gradiente violeta, glassmorphism e micro-animações
 
-## ⌨️ Atalhos de Teclado
+## ✍️ Como escrever
+
+A raiz do mapa é sempre um título `#`. A partir daí, use **listas indentadas** — a hierarquia fica clara pelo recuo visual:
+
+```markdown
+# Título do Mapa
+- Tópico principal
+  - Subtópico
+    - Detalhe mais profundo
+  - Outro subtópico
+- Segundo tópico
+  - Item A
+  - Item B
+```
+
+> Dois espaços de indentação = um nível mais fundo na árvore. Tão simples quanto uma lista de compras.
+
+Você também pode usar headings (`##`, `###`) se preferir — ambos funcionam.
+
+### Recursos extras
+
+```markdown
+# Mapa com recursos ricos
+- **Texto em negrito** e *itálico*
+- Link: [YouTube](https://youtube.com)
+- Imagem: !IMG[https://url-da-imagem.com/foto.jpg]
+- `código inline` nos nós
+```
+
+### Personalização com YAML
+
+Coloque um bloco `---` no topo do arquivo para customizar o visual:
+
+```yaml
+---
+tema: dark          # ou "white" para fundo claro
+cor_linhas: "#a78bfa"
+cor_destaque: "#c4b5fd"
+cor_fonte: "rgba(255,255,255,0.85)"
+font_family: "Outfit"   # qualquer fonte do Google Fonts
+---
+# Seu Mapa
+- Tópico
+```
+
+Para destacar um nó específico, adicione `(!!)` ao texto:
+```markdown
+- Ponto mais importante (!!)
+```
+
+## ⌨️ Atalhos de teclado
 
 | Tecla | Ação |
 | :--- | :--- |
-| `→` | Expandir próximo nó (Navegação passo a passo) |
-| `←` | Recolher nó anterior |
-| `E` | Alternar visibilidade do Editor |
-| `F` | Ajustar mapa à tela (Fit) |
-| `Ctrl + T` | Criar novo mapa |
+| `→` ou `Espaço` | Revelar próximo nó |
+| `←` | Voltar ao nó anterior |
+| `E` | Mostrar / ocultar editor |
+| `F` | Encaixar o mapa na tela |
+| `Esc` | Sair do Modo Foco |
+| `Ctrl + T` | Novo mapa |
 
-## 🚀 Tecnologias
+## 🎬 Para gravações de YouTube
 
-O projeto é construído com tecnologias web modernas de alto desempenho:
-- **Core**: HTML5, CSS3 (Variáveis Modernas & Glassmorphism), Vanilla JavaScript.
-- **Renderização**: [D3.js](https://d3js.org/) & [Markmap](https://markmap.js.org/).
-- **Processamento**: [js-yaml](https://github.com/nodeca/js-yaml) para configurações e [html-to-image](https://github.com/bubkoo/html-to-image) para exportação.
+1. Escreva seu mapa no editor
+2. Clique em **Foco** na barra superior (ou use o atalho `E` para ocultar o editor)
+3. Use `←` `→` para revelar o conteúdo nó por nó durante a explicação
+4. Pressione `Esc` a qualquer momento para voltar à interface normal
 
-## 🛠️ Como usar
+## 🚀 Como usar
 
-1. Abra o arquivo `index.html` em qualquer navegador moderno.
-2. Digite seu conteúdo no editor à esquerda usando a hierarquia de títulos do Markdown.
-3. Use o painel de **Tipografia** para dar uma identidade visual única ao seu mapa.
-4. Clique em **PNG** para exportar sua criação.
+Abra o arquivo `index.html` em qualquer navegador moderno. Não precisa de servidor, instalação ou internet (exceto para carregar as fontes e bibliotecas na primeira vez).
+
+## 🛠️ Tecnologias
+
+- **Core**: HTML5, CSS3, Vanilla JavaScript — arquivo único, zero dependências locais
+- **Renderização**: [D3.js](https://d3js.org/) + [Markmap](https://markmap.js.org/)
+- **Utilitários**: [js-yaml](https://github.com/nodeca/js-yaml) (config) · [html-to-image](https://github.com/bubkoo/html-to-image) (exportação PNG)
+- **Fontes**: [Google Fonts](https://fonts.google.com/) — Outfit + JetBrains Mono
 
 ---
-Desenvolvido com foco em simplicidade e estética visual.
+
+Desenvolvido com foco em simplicidade, estética visual e usabilidade para apresentações.
