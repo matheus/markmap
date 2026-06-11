@@ -1299,7 +1299,7 @@ function applyTheme(config) {
     const s = document.createElement('style');
     s.id = 'theme-css';
     s.textContent = `
-        #viewer svg#markmap { background: ${isPaper ? paperBg : 'transparent'}; }
+        #viewer svg#markmap { background: ${isPaper ? paperBg : (config.tema === 'white' ? '#ffffff' : 'transparent')}; }
         #viewer .markmap-node-text {
             fill: ${fontColor} !important;
             font-family: '${font}', ${fontStack} !important;
