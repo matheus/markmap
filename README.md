@@ -33,6 +33,22 @@ A raiz do mapa é sempre um título `#`. A partir daí, use **listas indentadas*
 
 Você também pode usar headings (`##`, `###`) se preferir — ambos funcionam.
 
+### Quebra de linha
+
+Textos longos **quebram automaticamente** dentro dos nós — sem precisar fazer nada. A largura máxima padrão é 260px. Para controlar via YAML:
+
+```yaml
+---
+max_largura: 200   # px — menor = quebra mais cedo (padrão: 260)
+---
+```
+
+Para forçar uma quebra manual num ponto específico, use `<br>` no texto do nó:
+
+```markdown
+- Primeira linha<br>Segunda linha do mesmo nó
+```
+
 ### Recursos extras
 
 ```markdown
