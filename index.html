@@ -979,16 +979,22 @@ function loadState() {
             maps = saved.maps;
             activeId = saved.activeId || maps[0].id;
             editorVisible = saved.editorVisible !== undefined ? saved.editorVisible : true;
+            // Carrega temas salvos, mas garante que os temas padrão sempre existam
+            const saved_themes = Array.isArray(saved.themes) ? saved.themes : [];
+            const builtinIds = new Set(DEFAULT_THEMES.map(t => t.id));
+            const userThemes = saved_themes.filter(t => !builtinIds.has(t.id));
+            themes = [...DEFAULT_THEMES, ...userThemes];
             return;
         }
     } catch(e) {}
     maps = [{ id: uid(), name: 'Mapa 1', content: DEFAULT_MAP }];
     activeId = maps[0].id;
+    themes = [...DEFAULT_THEMES];
 }
 
 function saveState() {
     try {
-        localStorage.setItem(STORAGE_KEY, JSON.stringify({ maps, activeId, editorVisible }));
+        localStorage.setItem(STORAGE_KEY, JSON.stringify({ maps, activeId, editorVisible, themes }));
     } catch(e) { toast('⚠ Erro ao salvar'); }
 }
 
@@ -1235,7 +1241,7 @@ function applyTheme(config) {
     const fontColor = config.cor_fonte    || (isPaper ? '#1c1007'              : dark ? 'rgba(255,255,255,0.82)' : '#1e1b4b');
     const accent    = config.cor_destaque || (isPaper ? '#7c3a1a'              : dark ? '#a78bfa'                : '#7c3aed');
     const font      = config.font_family  || (isPaper ? 'Caveat'               : 'Outfit');
-    const fontSize  = isPaper ? '18px' : '14px';   // Caveat lê melhor um pouco maior
+    const fontSize  = isPaper ? '18px' : '14px';
     const fontStack = isPaper ? 'cursive' : 'sans-serif';
     const maxW      = config.max_largura  || 260;
 
@@ -1244,6 +1250,47 @@ function applyTheme(config) {
     themeColors.accent   = accent;
     themeColors.maxWidth = maxW;
 
+    // Atualiza variáveis CSS do root para adaptar UI inteira ao tema
+    const root = document.documentElement;
+    if (isPaper) {
+        root.style.setProperty('--bg-from',       '#fdf9ed');
+        root.style.setProperty('--bg-to',         '#f5f0e0');
+        root.style.setProperty('--text',          '#1c1007');
+        root.style.setProperty('--text-mid',      'rgba(28,16,7,0.55)');
+        root.style.setProperty('--text-dim',      'rgba(28,16,7,0.35)');
+        root.style.setProperty('--surface',       'rgba(0,0,0,0.04)');
+        root.style.setProperty('--surface-hover', 'rgba(0,0,0,0.07)');
+        root.style.setProperty('--glass',         'rgba(253,249,237,0.82)');
+        root.style.setProperty('--glass-border',  'rgba(120,80,40,0.18)');
+        root.style.setProperty('--border',        'rgba(0,0,0,0.10)');
+        root.style.setProperty('--accent',        accent);
+    } else if (!dark) {
+        root.style.setProperty('--bg-from',       '#ede9fe');
+        root.style.setProperty('--bg-to',         '#f5f3ff');
+        root.style.setProperty('--text',          '#1e1b4b');
+        root.style.setProperty('--text-mid',      'rgba(30,27,75,0.55)');
+        root.style.setProperty('--text-dim',      'rgba(30,27,75,0.35)');
+        root.style.setProperty('--surface',       'rgba(0,0,0,0.04)');
+        root.style.setProperty('--surface-hover', 'rgba(0,0,0,0.07)');
+        root.style.setProperty('--glass',         'rgba(237,233,254,0.82)');
+        root.style.setProperty('--glass-border',  'rgba(109,40,217,0.18)');
+        root.style.setProperty('--border',        'rgba(0,0,0,0.08)');
+        root.style.setProperty('--accent',        accent);
+    } else {
+        // Dark (padrão) — restaura valores originais
+        root.style.setProperty('--bg-from',       '#0d0b14');
+        root.style.setProperty('--bg-to',         '#130f22');
+        root.style.setProperty('--text',          'rgba(255,255,255,0.88)');
+        root.style.setProperty('--text-mid',      'rgba(255,255,255,0.5)');
+        root.style.setProperty('--text-dim',      'rgba(255,255,255,0.28)');
+        root.style.setProperty('--surface',       'rgba(255,255,255,0.04)');
+        root.style.setProperty('--surface-hover', 'rgba(255,255,255,0.07)');
+        root.style.setProperty('--glass',         'rgba(15,12,26,0.75)');
+        root.style.setProperty('--glass-border',  'rgba(167,139,250,0.15)');
+        root.style.setProperty('--border',        'rgba(255,255,255,0.07)');
+        root.style.setProperty('--accent',        accent);
+    }
+
     // Fundo de papel pautado com margem azul
     const paperBg = [
         'linear-gradient(90deg, transparent 64px, rgba(100,149,237,0.22) 64px, rgba(100,149,237,0.22) 66px, transparent 66px)',
@@ -1251,10 +1298,21 @@ function applyTheme(config) {
         '#fdf9ed'
     ].join(', ');
 
+    // Carrega a Google Font dinamicamente se ainda não estiver no documento
+    const fontId = 'gfont-' + font.replace(/\s+/g, '-').toLowerCase();
+    if (!document.getElementById(fontId)) {
+        const link = document.createElement('link');
+        link.id = fontId;
+        link.rel = 'stylesheet';
+        link.href = `https://fonts.googleapis.com/css2?family=${encodeURIComponent(font)}:wght@400;500;600;700&display=swap`;
+        document.head.appendChild(link);
+    }
+
     document.getElementById('theme-css')?.remove();
     const s = document.createElement('style');
     s.id = 'theme-css';
     s.textContent = `
+        body, html { background: linear-gradient(135deg, var(--bg-from) 0%, var(--bg-to) 100%) !important; color: var(--text) !important; }
         #viewer { background: ${isPaper ? paperBg : dark ? 'transparent' : '#f5f3ff'}; }
         svg#markmap { background: transparent; }
         .markmap-node-text {
@@ -1268,10 +1326,6 @@ function applyTheme(config) {
             font-family: '${font}', ${fontStack} !important;
             font-size: ${fontSize} !important;
             font-weight: ${isPaper ? '600' : '500'} !important;
-            white-space: normal !important;
-            word-wrap: break-word !important;
-            overflow-wrap: break-word !important;
-            line-height: 1.55 !important;
         }
         .markmap-link {
             stroke: ${linkColor} !important;
@@ -1288,13 +1342,11 @@ function applyTheme(config) {
         .markmap-accent rect { fill: ${accent} !important; }
         .markmap-accent .markmap-node-circle { fill: ${accent} !important; }
         .markmap-node > foreignObject,
-        .markmap-node > foreignObject > div,
-        .markmap-node > foreignObject > div > * {
+        .markmap-node > foreignObject > div {
             visibility: visible !important;
             opacity: 1 !important;
-            display: block !important;
         }
-        /* Esconde o sentinela (!!) — especificidade maior que a regra acima */
+        /* Esconde o sentinela (!!) */
         [data-mm-hl] {
             display: none !important;
             visibility: hidden !important;
@@ -1346,7 +1398,7 @@ async function render() {
     linkParents(currentRoot);
 
     if (isFirstRender || !prevFoldState) {
-        // Primeiro render: recolhe tudo (comportamento original)
+        // Primeiro render: recolhe tudo
         currentNavIndex = 0;
         currentFocusedNode = currentRoot;
         foldAll(currentRoot);
@@ -1370,15 +1422,16 @@ async function render() {
                     return content.includes('(!!)') ? themeColors.accent : themeColors.link;
                 }
             }, currentRoot);
-            mm.fit();
         } else {
-            mm.setOptions({
-                maxWidth: themeColors.maxWidth,
-                color: (node) => (node.data?.content || node.content || '').includes('(!!)') ? themeColors.accent : themeColors.link
-            });
+            mm.setOptions({ maxWidth: themeColors.maxWidth, color: (node) => (node.data?.content || node.content || '').includes('(!!)') ? themeColors.accent : themeColors.link });
             mm.setData(currentRoot);
-            mm.fit();
         }
+        mm.fit();
+        // Re-layout após o browser processar o CSS (evita sobreposição de nós)
+        requestAnimationFrame(() => requestAnimationFrame(() => {
+            if (mm && currentRoot) { mm.setData(currentRoot); mm.fit(); }
+        }));
+        setTimeout(forceRecolorNodes, 520);
 
         if (currentFocusedNode) {
             centerOnNode(currentFocusedNode);
@@ -1401,6 +1454,15 @@ async function render() {
             color: (node) => (node.data?.content || node.content || '').includes('(!!)') ? themeColors.accent : themeColors.link
         });
         mm.setData(currentRoot);
+        // Re-layout após o browser processar o CSS (evita sobreposição de nós)
+        requestAnimationFrame(() => requestAnimationFrame(() => {
+            if (!mm || !currentRoot) return;
+            const svg2 = document.getElementById('markmap');
+            const t2 = svg2 ? d3.zoomTransform(svg2) : null;
+            mm.setData(currentRoot);
+            if (t2 && svg2 && mm.zoom) requestAnimationFrame(() => d3.select(svg2).call(mm.zoom.transform, t2));
+        }));
+        setTimeout(forceRecolorNodes, 520);
 
         // Restaura a posição da câmera após setData
         if (savedTransform && svg && mm.zoom) {
@@ -1432,7 +1494,36 @@ function contrastColor(hex) {
     return (0.299*r + 0.587*g + 0.114*b) > 148 ? '#1c1340' : '#fff';
 }
 
+// ─── FORÇA RECOLORAÇÃO DOS NÓS APÓS TROCA DE TEMA ───────────────────────────
+// O D3 aplica cores via atributos SVG inline (fill/stroke). Depois do setData,
+// percorremos o SVG e sobrescrevemos esses atributos com os valores atuais do tema.
+function forceRecolorNodes() {
+    const svg = document.getElementById('markmap');
+    if (!svg) return;
+
+    // Recolore os círculos dos nós
+    svg.querySelectorAll('.markmap-node-circle').forEach(el => {
+        const isAccent = el.closest('.markmap-node')?.classList.contains('markmap-accent');
+        el.setAttribute('fill', isAccent ? themeColors.accent : themeColors.link);
+    });
+
+    // Recolore as linhas/ramos
+    svg.querySelectorAll('.markmap-link').forEach(el => {
+        el.setAttribute('stroke', themeColors.link);
+    });
+
+    // Remove cor inline dos textos (deixa o CSS com !important assumir)
+    svg.querySelectorAll('.markmap-node-text').forEach(el => {
+        el.removeAttribute('fill');
+        el.style.removeProperty('fill');
+    });
+
+    // Re-aplica destaques depois
+    setTimeout(applyHighlights, 50);
+}
+
 function applyHighlights() {
+
     const svg = document.getElementById('markmap');
     if (!svg) return;
 
