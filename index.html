@@ -781,6 +781,31 @@ function extractConfig(md) {
     try { return jsyaml.load(parts[1]) || {}; } catch(e) { return {}; }
 }
 
+// Converte qualquer cor CSS (hex, rgb, rgba) para rgba com opacidade personalizada
+function toRgba(color, alpha) {
+    // Hex curto: #abc
+    let m = color.match(/^#([0-9a-f]{3})$/i);
+    if (m) {
+        const [r, g, b] = m[1].split('').map(x => parseInt(x + x, 16));
+        return `rgba(${r},${g},${b},${alpha})`;
+    }
+    // Hex longo: #aabbcc
+    m = color.match(/^#([0-9a-f]{6})$/i);
+    if (m) {
+        const r = parseInt(m[1].slice(0,2), 16);
+        const g = parseInt(m[1].slice(2,4), 16);
+        const b = parseInt(m[1].slice(4,6), 16);
+        return `rgba(${r},${g},${b},${alpha})`;
+    }
+    // rgb(r,g,b)
+    m = color.match(/^rgb\s*\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*\)$/i);
+    if (m) return `rgba(${m[1]},${m[2]},${m[3]},${alpha})`;
+    // rgba — substitui o alpha existente
+    m = color.match(/^rgba\s*\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*,\s*[\d.]+\s*\)$/i);
+    if (m) return `rgba(${m[1]},${m[2]},${m[3]},${alpha})`;
+    return color; // fallback: devolve a cor original
+}
+
 function applyTheme(config) {
     const isPaper = config.tema === 'caneta';
     const dark    = !isPaper && config.tema !== 'white';
@@ -840,7 +865,7 @@ function applyTheme(config) {
             ${isPaper ? 'stroke-width: 2px !important; r: 4px !important;' : ''}
         }
         .markmap-accent .markmap-node-text { fill: ${accent} !important; font-weight: 700 !important; }
-        .markmap-accent .markmap-node foreignObject div { color: ${accent} !important; font-weight: 700 !important; }
+        .markmap-accent rect { fill: ${accent} !important; }
         .markmap-accent .markmap-node-circle { fill: ${accent} !important; }
         .markmap-node > foreignObject,
         .markmap-node > foreignObject > div,
@@ -848,6 +873,16 @@ function applyTheme(config) {
             visibility: visible !important;
             opacity: 1 !important;
             display: block !important;
+        }
+        /* Esconde o sentinela (!!) — especificidade maior que a regra acima */
+        [data-mm-hl] {
+            display: none !important;
+            visibility: hidden !important;
+            font-size: 0 !important;
+            line-height: 0 !important;
+            width: 0 !important;
+            height: 0 !important;
+            overflow: hidden !important;
         }
     `;
     document.head.appendChild(s);
@@ -966,25 +1001,67 @@ async function render() {
 }
 
 // ─── HIGHLIGHT (!!) ───────────────────────────────────────────────────────────
+
+// Retorna preto ou branco dependendo da luminância percebida da cor de destaque
+function contrastColor(hex) {
+    const m = hex.match(/^#([0-9a-f]{6})$/i);
+    if (!m) return '#fff';
+    const r = parseInt(m[1].slice(0,2), 16);
+    const g = parseInt(m[1].slice(2,4), 16);
+    const b = parseInt(m[1].slice(4,6), 16);
+    return (0.299*r + 0.587*g + 0.114*b) > 148 ? '#1c1340' : '#fff';
+}
+
 function applyHighlights() {
     const svg = document.getElementById('markmap');
     if (!svg) return;
 
+    const accent    = themeColors.accent;
+    const textColor = contrastColor(accent);
+
     svg.querySelectorAll('g.markmap-node').forEach(g => {
-        // Lê o texto visível renderizado no DOM — independe da estrutura interna do markmap
         const fo = g.querySelector('foreignObject div');
         if (!fo) return;
 
-        const rawHTML = fo.innerHTML;
-        if (rawHTML.includes('(!!)')) {
+        // includes() encontra (!!) visível OU dentro do sentinela oculto [data-mm-hl]
+        const isAccent = fo.innerHTML.includes('(!!)');
+
+        if (isAccent) {
             g.classList.add('markmap-accent');
-            // Remove o marcador (!!) do texto exibido
-            fo.innerHTML = rawHTML.replace(/\s*\(!!\)\s*/g, ' ').trim();
+
+            // Substitui (!!) visível por sentinela oculto — mantém no DOM para detecções futuras
+            if (!fo.querySelector('[data-mm-hl]')) {
+                fo.innerHTML = fo.innerHTML.replace(
+                    /\s*\(!!\)\s*/g,
+                    '<span data-mm-hl>(!!)</span>'   // CSS esconde via [data-mm-hl]
+                );
+            }
+
+            // Preenchimento sólido com a cor de destaque
+            fo.style.setProperty('background',    accent,     'important');
+            fo.style.setProperty('border-radius', '4px',      'important');
+            fo.style.setProperty('padding',       '1px 8px',  'important');
+            fo.style.setProperty('color',         textColor,  'important');
+            fo.style.setProperty('font-weight',   '700',      'important');
+
+            // Também aplica no rect caso o markmap o renderize
+            const rect = g.querySelector('rect');
+            if (rect) rect.style.setProperty('fill', accent, 'important');
+
         } else {
             g.classList.remove('markmap-accent');
+            fo.style.removeProperty('background');
+            fo.style.removeProperty('border-radius');
+            fo.style.removeProperty('padding');
+            fo.style.removeProperty('color');
+            fo.style.removeProperty('font-weight');
+
+            const rect = g.querySelector('rect');
+            if (rect) rect.style.removeProperty('fill');
         }
     });
 }
+
 
 // ─── SKETCH FILTER (tema: caneta) ────────────────────────────────────────────
 function injectSketchFilter() {
