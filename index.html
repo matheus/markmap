@@ -126,6 +126,7 @@
         }
         .tb-btn:hover { color: var(--text); background: var(--surface-hover); border-color: var(--border); }
         .tb-btn svg { flex-shrink: 0; }
+        .tb-btn.tb-icon { width: 32px; padding: 0; justify-content: center; }
 
         .tb-btn.primary {
             color: var(--accent);
@@ -546,24 +547,24 @@
         /* ─── THEMES DRAWER ─── */
         #themes-overlay {
             position: fixed; inset: 0;
-            background: rgba(0,0,0,0.45);
-            z-index: 490; opacity: 0; pointer-events: none;
-            transition: opacity 0.25s ease;
+            background: transparent;
+            z-index: 490; pointer-events: none;
         }
-        #themes-overlay.open { opacity: 1; pointer-events: auto; }
+        #themes-overlay.open { pointer-events: auto; }
 
         #themes-drawer {
             position: fixed;
             top: 0; right: 0; bottom: 0; width: 340px;
             background: #09070f;
             border-left: 1px solid var(--glass-border);
-            box-shadow: -32px 0 80px rgba(0,0,0,0.7);
+            box-shadow: none;
             z-index: 500;
             display: flex; flex-direction: column;
             transform: translateX(100%);
-            transition: transform 0.3s cubic-bezier(0.4,0,0.2,1);
+            transition: transform 0.3s cubic-bezier(0.4,0,0.2,1), box-shadow 0.3s ease;
         }
-        #themes-drawer.open { transform: translateX(0); }
+        #themes-drawer.open { transform: translateX(0); box-shadow: -8px 0 40px rgba(0,0,0,0.5); }
+
 
         .drawer-header {
             display: flex; align-items: center; justify-content: space-between;
@@ -715,35 +716,32 @@
         markmap
     </div>
     <div class="sep"></div>
-    <button class="tb-btn" onclick="downloadMD()" title="Salvar .md">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-        Salvar
+    <button class="tb-btn primary" onclick="enterFocusMode()" title="Modo apresentação — Esc para sair">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3H5a2 2 0 0 0-2 2v3"/><path d="M21 8V5a2 2 0 0 0-2-2h-3"/><path d="M3 16v3a2 2 0 0 0 2 2h3"/><path d="M16 21h3a2 2 0 0 0 2-2v-3"/></svg>
+        Foco
     </button>
-    <button class="tb-btn" onclick="exportImage()">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
-        Exportar PNG
-    </button>
-    <div class="sep"></div>
-    <button class="tb-btn" onclick="exportBackup()" title="Exportar backup de todos os mapas">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/><rect x="3" y="3" width="6" height="6" rx="1" fill="currentColor" stroke="none"/></svg>
-        Backup
-    </button>
-    <button class="tb-btn" onclick="triggerImport()" title="Importar backup">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
-        Importar
-    </button>
-    <input type="file" id="import-input" accept=".json" style="display:none" onchange="importBackup(event)">
     <div class="sep"></div>
     <button class="tb-btn" onclick="openThemesDrawer()" id="btn-themes" title="Gerenciar temas">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M12 1v4M12 19v4M4.22 4.22l2.83 2.83M16.95 16.95l2.83 2.83M1 12h4M19 12h4M4.22 19.78l2.83-2.83M16.95 7.05l2.83-2.83"/></svg>
         Temas
     </button>
     <div class="sep"></div>
-    <button class="tb-btn primary" onclick="enterFocusMode()" title="Modo apresentação (Esc para sair)">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3H5a2 2 0 0 0-2 2v3"/><path d="M21 8V5a2 2 0 0 0-2-2h-3"/><path d="M3 16v3a2 2 0 0 0 2 2h3"/><path d="M16 21h3a2 2 0 0 0 2-2v-3"/></svg>
-        Foco
+    <button class="tb-btn tb-icon" onclick="downloadMD()" title="Salvar .md">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
     </button>
+    <button class="tb-btn tb-icon" onclick="exportImage()" title="Exportar PNG">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+    </button>
+    <div class="sep"></div>
+    <button class="tb-btn tb-icon" onclick="exportBackup()" title="Backup — exportar todos os mapas">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/><rect x="3" y="3" width="6" height="6" rx="1" fill="currentColor" stroke="none"/></svg>
+    </button>
+    <button class="tb-btn tb-icon" onclick="triggerImport()" title="Importar backup">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+    </button>
+    <input type="file" id="import-input" accept=".json" style="display:none" onchange="importBackup(event)">
 </div>
+
 
 <!-- EDITOR PANEL -->
 <div id="panel">
@@ -1312,7 +1310,7 @@ function applyTheme(config) {
     const s = document.createElement('style');
     s.id = 'theme-css';
     s.textContent = `
-        body, html { background: linear-gradient(135deg, var(--bg-from) 0%, var(--bg-to) 100%) !important; color: var(--text) !important; }
+        /* Fundo do app — via variáveis CSS atualizadas por applyTheme() */
         #viewer { background: ${isPaper ? paperBg : dark ? 'transparent' : '#f5f3ff'}; }
         svg#markmap { background: transparent; }
         .markmap-node-text {

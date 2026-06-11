@@ -1,4 +1,4 @@
-const CACHE = 'markmap-v3';
+const CACHE = 'markmap-v4';
 
 // Recursos locais sempre em cache
 const LOCAL_ASSETS = [
@@ -23,7 +23,6 @@ const CDN_ASSETS = [
 self.addEventListener('install', event => {
   event.waitUntil(
     caches.open(CACHE).then(cache =>
-      // Tenta cachear CDN mas não falha se estiver offline
       cache.addAll(LOCAL_ASSETS).then(() =>
         Promise.allSettled(CDN_ASSETS.map(url => cache.add(url)))
       )
@@ -40,14 +39,27 @@ self.addEventListener('activate', event => {
   );
 });
 
-// ── Fetch: cache-first para recursos conhecidos, network-first pro resto ──
+// ── Fetch ──────────────────────────────────────────────────────────────────
 self.addEventListener('fetch', event => {
-  // Ignora requisições não-GET e schemes não suportados (chrome-extension, etc.)
   if (event.request.method !== 'GET') return;
   const url = new URL(event.request.url);
   if (url.protocol !== 'http:' && url.protocol !== 'https:') return;
 
-  // Para fontes do Google, usa cache-first puro
+  // index.html — SEMPRE busca na rede primeiro para pegar atualizações
+  if (url.pathname === '/' || url.pathname.endsWith('/index.html')) {
+    event.respondWith(
+      fetch(event.request).then(response => {
+        if (response.ok) {
+          const clone = response.clone();
+          caches.open(CACHE).then(cache => cache.put(event.request, clone));
+        }
+        return response;
+      }).catch(() => caches.match(event.request)) // fallback offline
+    );
+    return;
+  }
+
+  // Fontes do Google — cache-first puro
   if (url.hostname === 'fonts.googleapis.com' || url.hostname === 'fonts.gstatic.com') {
     event.respondWith(
       caches.match(event.request).then(cached => {
@@ -62,7 +74,7 @@ self.addEventListener('fetch', event => {
     return;
   }
 
-  // Para CDN e assets locais: cache-first com atualização em background
+  // CDN e demais assets — cache-first com atualização em background
   event.respondWith(
     caches.match(event.request).then(cached => {
       const network = fetch(event.request).then(response => {
