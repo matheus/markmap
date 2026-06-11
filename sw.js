@@ -1,4 +1,4 @@
-const CACHE = 'markmap-v1';
+const CACHE = 'markmap-v2';
 
 // Recursos locais sempre em cache
 const LOCAL_ASSETS = [

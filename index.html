@@ -169,53 +169,153 @@
         }
 
 
-        /* Maps section */
+        /* ─── MAP DROPDOWN ─── */
         #maps-card {
             flex-shrink: 0;
-            padding: 12px;
+            position: relative;
+            z-index: 10;           /* fica acima do #editor-card no mesmo painel */
+            overflow: visible;     /* permite que o dropdown flutue fora do card */
         }
-        .maps-label {
-            font-size: 10px; font-weight: 500; letter-spacing: 0.1em;
-            text-transform: uppercase; color: var(--text-dim);
-            padding: 0 4px; margin-bottom: 8px;
+        /* Trigger — linha única clicável */
+        #map-trigger {
+            display: flex; align-items: center; gap: 8px;
+            padding: 9px 12px;
+            cursor: pointer;
+            transition: background 0.15s;
+            border-radius: var(--radius);
+            user-select: none;
         }
-        .map-tabs {
-            display: flex; flex-wrap: wrap; gap: 5px;
+        #map-trigger:hover { background: rgba(255,255,255,0.03); }
+        #map-trigger-icon { color: var(--accent); opacity: 0.8; flex-shrink: 0; }
+        #map-trigger-name {
+            flex: 1; min-width: 0;
+            font-size: 13px; font-weight: 600;
+            color: var(--text);
+            white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
         }
-        .tab {
-            display: flex; align-items: center; gap: 4px;
-            padding: 4px 10px; border-radius: 999px;
-            font-size: 12.5px; font-weight: 500;
-            color: var(--text-mid); cursor: pointer;
+        #map-trigger-badge {
+            font-size: 10px; font-family: var(--font-mono);
+            color: var(--text-dim);
+            background: rgba(255,255,255,0.05);
+            border-radius: 999px; padding: 1px 7px;
+            flex-shrink: 0;
+        }
+        #map-trigger-chevron {
+            flex-shrink: 0; color: var(--text-dim);
+            transition: transform 0.2s ease;
+        }
+        #maps-card.open #map-trigger-chevron { transform: rotate(180deg); }
+
+        /* Dropdown panel — flutua abaixo do trigger */
+        #map-dropdown {
+            position: absolute;
+            top: calc(100% + 4px);
+            left: 0; right: 0;
+            background: #0f0c1a;
+            border: 1px solid var(--glass-border);
+            border-radius: 12px;
+            box-shadow: 0 16px 48px rgba(0,0,0,0.7), 0 0 0 1px rgba(167,139,250,0.08);
+            z-index: 200;
+            overflow: hidden;
+            padding: 8px;
+            /* animação de abertura */
+            transform-origin: top center;
+            transform: scaleY(0.85) translateY(-6px);
+            opacity: 0;
+            pointer-events: none;
+            transition: transform 0.18s cubic-bezier(0.4,0,0.2,1),
+                        opacity 0.15s ease;
+        }
+        #maps-card.open #map-dropdown {
+            transform: scaleY(1) translateY(0);
+            opacity: 1;
+            pointer-events: auto;
+        }
+
+        /* Search box */
+        .map-search-wrap {
+            position: relative; margin-bottom: 6px;
+        }
+        .map-search-icon {
+            position: absolute; left: 8px; top: 50%; transform: translateY(-50%);
+            color: var(--text-dim); pointer-events: none;
+            display: flex; align-items: center;
+        }
+        #map-search {
+            width: 100%; box-sizing: border-box;
+            background: rgba(255,255,255,0.05);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 6px 8px 6px 28px;
+            font-family: var(--font); font-size: 12px;
+            color: var(--text); outline: none;
+            transition: border-color 0.15s;
+        }
+        #map-search:focus { border-color: rgba(167,139,250,0.45); }
+        #map-search::placeholder { color: var(--text-dim); }
+
+        /* Map list */
+        .map-list {
+            display: flex; flex-direction: column; gap: 1px;
+            max-height: 220px; overflow-y: auto;
+            scrollbar-width: thin;
+            scrollbar-color: rgba(167,139,250,0.15) transparent;
+        }
+        .map-item {
+            display: flex; align-items: center; gap: 7px;
+            padding: 6px 8px; border-radius: 7px;
+            cursor: pointer; transition: all 0.1s;
             border: 1px solid transparent;
-            background: transparent;
-            transition: all 0.15s ease;
+            min-width: 0;
         }
-        .tab:hover { color: var(--text); background: var(--surface-hover); border-color: var(--border); }
-        .tab.active {
-            color: var(--accent);
+        .map-item:hover { background: rgba(255,255,255,0.05); border-color: var(--border); }
+        .map-item.active {
             background: var(--accent-dim);
             border-color: rgba(167,139,250,0.3);
         }
-        .close-tab {
-            width: 14px; height: 14px;
+        .map-item-icon { flex-shrink: 0; color: var(--text-dim); opacity: 0.5; }
+        .map-item.active .map-item-icon { color: var(--accent); opacity: 1; }
+        .map-item-name {
+            flex: 1; min-width: 0;
+            font-size: 12.5px; font-weight: 500; color: var(--text-mid);
+            white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+        }
+        .map-item.active .map-item-name { color: var(--accent); }
+        .map-item:hover .map-item-name { color: var(--text); }
+        .map-item-del {
+            flex-shrink: 0; width: 16px; height: 16px;
             display: flex; align-items: center; justify-content: center;
-            border-radius: 50%; font-size: 10px; line-height: 1;
-            opacity: 0; color: var(--text-dim);
+            border-radius: 4px; font-size: 11px;
+            opacity: 0; color: var(--text-dim); transition: all 0.1s;
+        }
+        .map-item:hover .map-item-del { opacity: 1; }
+        .map-item-del:hover { background: rgba(248,113,113,0.18); color: #f87171; }
+        .map-no-results {
+            font-size: 11.5px; color: var(--text-dim);
+            text-align: center; padding: 10px 0; font-style: italic;
+        }
+        /* Divider */
+        .map-dropdown-sep {
+            height: 1px; background: var(--border);
+            margin: 6px 0;
+        }
+        /* New map button */
+        .btn-new-map {
+            display: flex; align-items: center; gap: 6px;
+            width: 100%; padding: 6px 8px; border-radius: 7px;
+            font-size: 12px; font-weight: 500;
+            color: var(--text-dim); cursor: pointer;
+            border: none; background: transparent;
             transition: all 0.12s;
         }
-        .tab:hover .close-tab { opacity: 1; }
-        .close-tab:hover { background: rgba(248,113,113,0.2); color: var(--red); }
-        .tab-new {
-            display: flex; align-items: center; gap: 4px;
-            padding: 4px 10px; border-radius: 999px;
-            font-size: 12.5px; font-weight: 500;
-            color: var(--text-dim); cursor: pointer;
-            border: 1px dashed var(--border);
-            background: transparent;
-            transition: all 0.15s ease;
+        .btn-new-map:hover { color: var(--accent); background: var(--accent-dim); }
+        /* Rename input */
+        .map-rename-input {
+            flex: 1; min-width: 0;
+            background: transparent; border: none; outline: none;
+            font-family: var(--font); font-size: 12.5px; font-weight: 500;
+            color: var(--accent); padding: 0;
         }
-        .tab-new:hover { color: var(--accent); border-color: rgba(167,139,250,0.4); background: var(--accent-dim); }
 
         /* Editor section */
         #editor-card {
@@ -249,12 +349,7 @@
         }
         #editor::placeholder { color: var(--text-dim); font-style: italic; }
 
-        /* Tab rename input */
-        .tab-rename-input {
-            background: transparent; border: none; outline: none;
-            font-family: var(--font); font-size: 12.5px; font-weight: 500;
-            color: var(--accent); width: 80px; padding: 0;
-        }
+
 
         /* ─── FABs ─── */
         #fabs {
@@ -496,14 +591,35 @@
 
 <!-- EDITOR PANEL -->
 <div id="panel">
-    <!-- Maps tabs -->
+    <!-- Map dropdown -->
     <div class="panel-card" id="maps-card">
-        <div class="maps-label">Mapas</div>
-        <div class="map-tabs" id="tabs-container"></div>
-        <button class="tab-new" onclick="newMap()" style="margin-top:6px;">
-            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-            Novo mapa
-        </button>
+        <!-- Trigger: mostra apenas o mapa ativo -->
+        <div id="map-trigger" onclick="toggleMapDropdown()">
+            <span id="map-trigger-icon">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+            </span>
+            <span id="map-trigger-name">Mapa 1</span>
+            <span id="map-trigger-badge">1</span>
+            <span id="map-trigger-chevron">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg>
+            </span>
+        </div>
+
+        <!-- Dropdown flutuante -->
+        <div id="map-dropdown">
+            <div class="map-search-wrap">
+                <span class="map-search-icon">
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+                </span>
+                <input id="map-search" type="text" placeholder="Buscar mapa..." oninput="filterMaps(this.value)" autocomplete="off">
+            </div>
+            <div class="map-list" id="tabs-container"></div>
+            <div class="map-dropdown-sep"></div>
+            <button class="btn-new-map" onclick="newMap()">
+                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                Novo mapa
+            </button>
+        </div>
     </div>
 
     <!-- Editor -->
@@ -659,37 +775,96 @@ function init() {
     render();
 }
 
-// ─── TAB MANAGEMENT ───────────────────────────────────────────────────────────
-function renderTabs() {
-    tabsContainer.innerHTML = '';
-    maps.forEach(m => {
-        const tab = document.createElement('div');
-        tab.className = 'tab' + (m.id === activeId ? ' active' : '');
-        tab.dataset.id = m.id;
-        tab.innerHTML = `<span class="tab-label">${escHtml(m.name)}</span><span class="close-tab" data-id="${m.id}">✕</span>`;
+// ─── MAP DROPDOWN ───────────────────────────────────────────────────────────
+let mapFilter = '';
+const mapsCard = document.getElementById('maps-card');
 
-        tab.addEventListener('click', e => {
-            if (e.target.classList.contains('close-tab')) { closeMap(e.target.dataset.id); return; }
-            if (e.target.classList.contains('tab-rename-input')) return;
-            switchMap(m.id);
-        });
-
-        tab.querySelector('.tab-label').addEventListener('dblclick', e => {
-            e.stopPropagation();
-            startRename(tab, m.id);
-        });
-
-        tabsContainer.appendChild(tab);
-    });
+function updateTrigger() {
+    const active = maps.find(m => m.id === activeId);
+    const nameEl  = document.getElementById('map-trigger-name');
+    const badgeEl = document.getElementById('map-trigger-badge');
+    if (nameEl)  nameEl.textContent  = active?.name || 'Mapa';
+    if (badgeEl) badgeEl.textContent = maps.length;
 }
 
-function startRename(tab, id) {
-    const label = tab.querySelector('.tab-label');
+function toggleMapDropdown() {
+    const isOpen = mapsCard.classList.toggle('open');
+    if (isOpen) {
+        // Limpa busca e foca o campo
+        const search = document.getElementById('map-search');
+        if (search) { search.value = ''; filterMaps(''); search.focus(); }
+        // Rola o item ativo para a vista
+        const activeItem = tabsContainer.querySelector('.map-item.active');
+        if (activeItem) setTimeout(() => activeItem.scrollIntoView({ block: 'nearest' }), 50);
+    }
+}
+
+function closeMapDropdown() {
+    mapsCard.classList.remove('open');
+}
+
+// Fecha o dropdown ao clicar fora
+document.addEventListener('click', e => {
+    if (mapsCard && !mapsCard.contains(e.target)) closeMapDropdown();
+});
+
+function renderTabs() {
+    const query = mapFilter.toLowerCase();
+    const visible = maps.filter(m => m.name.toLowerCase().includes(query));
+
+    tabsContainer.innerHTML = '';
+    updateTrigger();
+
+    if (visible.length === 0) {
+        tabsContainer.innerHTML = '<div class="map-no-results">Nenhum mapa encontrado</div>';
+        return;
+    }
+
+    visible.forEach(m => {
+        const item = document.createElement('div');
+        item.className = 'map-item' + (m.id === activeId ? ' active' : '');
+        item.dataset.id = m.id;
+        item.innerHTML = `
+            <span class="map-item-icon">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+            </span>
+            <span class="map-item-name">${escHtml(m.name)}</span>
+            <span class="map-item-del" data-id="${m.id}" title="Remover">✕</span>
+        `;
+
+        item.addEventListener('click', e => {
+            if (e.target.classList.contains('map-item-del') || e.target.closest('.map-item-del')) {
+                closeMap(e.target.closest('[data-id]').dataset.id); return;
+            }
+            if (e.target.classList.contains('map-rename-input')) return;
+            switchMap(m.id);
+            closeMapDropdown();
+        });
+
+        item.querySelector('.map-item-name').addEventListener('dblclick', e => {
+            e.stopPropagation();
+            startRename(item, m.id);
+        });
+
+        tabsContainer.appendChild(item);
+    });
+
+    // Rola o item ativo para a vista
+    const activeItem = tabsContainer.querySelector('.map-item.active');
+    if (activeItem) activeItem.scrollIntoView({ block: 'nearest' });
+}
+
+function filterMaps(val) {
+    mapFilter = val;
+    renderTabs();
+}
+
+function startRename(item, id) {
+    const label = item.querySelector('.map-item-name');
     const m = maps.find(x => x.id === id);
     const input = document.createElement('input');
-    input.className = 'tab-rename-input';
+    input.className = 'map-rename-input';
     input.value = m.name;
-    input.style.width = Math.max(60, label.offsetWidth) + 'px';
     label.replaceWith(input);
     input.focus(); input.select();
     function commit() {
@@ -727,8 +902,9 @@ function newMap() {
     maps.push(m);
     activeId = m.id;
     editorEl.value = m.content;
-    isFirstRender = true;  // força recolher no novo mapa
+    isFirstRender = true;
     renderTabs();
+    closeMapDropdown();
     scheduleRender();
     saveState();
 }
