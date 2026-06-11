@@ -782,9 +782,9 @@ function applyTheme(config) {
             stroke: ${isPaper ? '#fdf9ed' : 'none'} !important;
             ${isPaper ? 'stroke-width: 2px !important; r: 4px !important;' : ''}
         }
-        g[data-path*="(!!)"] .markmap-node-text { fill: ${accent} !important; font-weight: 700 !important; }
-        g[data-path*="(!!)"] .markmap-node foreignObject div { color: ${accent} !important; font-weight: 700 !important; }
-        g[data-path*="(!!)"] .markmap-node-circle { fill: ${accent} !important; }
+        .markmap-accent .markmap-node-text { fill: ${accent} !important; font-weight: 700 !important; }
+        .markmap-accent .markmap-node foreignObject div { color: ${accent} !important; font-weight: 700 !important; }
+        .markmap-accent .markmap-node-circle { fill: ${accent} !important; }
         .markmap-node > foreignObject,
         .markmap-node > foreignObject > div,
         .markmap-node > foreignObject > div > * {
@@ -904,6 +904,29 @@ async function render() {
     setTimeout(forceRootVisible, 500);
     setTimeout(injectSketchFilter, 80);   // caneta theme
     setTimeout(injectSketchFilter, 520);  // re-inject after animation
+    setTimeout(applyHighlights, 100);     // (!!) destaque
+    setTimeout(applyHighlights, 600);     // re-apply after animation
+}
+
+// ─── HIGHLIGHT (!!) ───────────────────────────────────────────────────────────
+function applyHighlights() {
+    const svg = document.getElementById('markmap');
+    if (!svg) return;
+
+    svg.querySelectorAll('g.markmap-node').forEach(g => {
+        // Lê o texto visível renderizado no DOM — independe da estrutura interna do markmap
+        const fo = g.querySelector('foreignObject div');
+        if (!fo) return;
+
+        const rawHTML = fo.innerHTML;
+        if (rawHTML.includes('(!!)')) {
+            g.classList.add('markmap-accent');
+            // Remove o marcador (!!) do texto exibido
+            fo.innerHTML = rawHTML.replace(/\s*\(!!\)\s*/g, ' ').trim();
+        } else {
+            g.classList.remove('markmap-accent');
+        }
+    });
 }
 
 // ─── SKETCH FILTER (tema: caneta) ────────────────────────────────────────────
@@ -998,6 +1021,7 @@ function expandAll() {
     mm.setData(currentRoot);
     updateProgress();
     setTimeout(() => mm?.fit(), 150);
+    setTimeout(applyHighlights, 600);
     toast('Mapa totalmente expandido');
 }
 
@@ -1011,6 +1035,7 @@ function collapseAll() {
     mm.setData(currentRoot);
     updateProgress();
     setTimeout(() => mm?.fit(), 150);
+    setTimeout(applyHighlights, 600);
     toast('Mapa recolhido');
 }
 
@@ -1096,6 +1121,7 @@ function stepForward() {
             mm.setData(currentRoot);
             updateProgress();
             setTimeout(() => { currentFocusedNode = next; centerOnNode(next); highlightNode(next); }, 150);
+            setTimeout(applyHighlights, 600);
         } else {
             currentFocusedNode = next; centerOnNode(next); highlightNode(next);
         }
