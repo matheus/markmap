@@ -941,11 +941,7 @@ const TRAIL_LEN = 28;         // comprimento do rastro
 
 // ─── DEFAULT CONTENT ──────────────────────────────────────────────────────────
 const DEFAULT_MAP = `---
-tema: dark
-cor_linhas: "#a78bfa"
-cor_destaque: "#c4b5fd"
-cor_fonte: "rgba(255,255,255,0.85)"
-font_family: "Outfit"
+preset: "Dark Purple"
 ---
 # Markmap ✦
 - Como escrever
@@ -990,6 +986,32 @@ function loadState() {
     themes = [...DEFAULT_THEMES];
 }
 
+// Migra mapas com YAML inline antigo para formato preset:
+function migrateInlineYaml() {
+    const INLINE_KEYS = ['tema','cor_linhas','cor_destaque','cor_fonte','font_family'];
+    let changed = false;
+    maps.forEach(map => {
+        if (!map.content?.trimStart().startsWith('---')) return;
+        try {
+            const parts = map.content.split('---');
+            if (parts.length < 3) return;
+            const fm = jsyaml.load(parts[1]) || {};
+            // Se já tem preset ou não tem nenhuma chave inline, pula
+            if (fm.preset || !INLINE_KEYS.some(k => k in fm)) return;
+            // Tenta encontrar um tema padrão compatível
+            const matched = DEFAULT_THEMES.find(t =>
+                Object.entries(t.config).every(([k,v]) => !fm[k] || fm[k] === v)
+            ) || DEFAULT_THEMES[0]; // fallback: Dark Purple
+            // Reconstrói o frontmatter só com preset:
+            const body = parts.slice(2).join('---');
+            map.content = `---\npreset: "${matched.name}"\n---${body}`;
+            changed = true;
+        } catch(e) {}
+    });
+    if (changed) saveState();
+}
+
+
 function saveState() {
     try {
         localStorage.setItem(STORAGE_KEY, JSON.stringify({ maps, activeId, editorVisible, themes }));
@@ -1001,7 +1023,9 @@ function uid() { return Date.now().toString(36) + Math.random().toString(36).sli
 // ─── INIT ─────────────────────────────────────────────────────────────────────
 function init() {
     loadState();
+    migrateInlineYaml();                                    // converte YAML inline → preset:
     editorEl.value = maps.find(m => m.id === activeId)?.content || '';
+
     renderTabs();
     applyEditorVisibility();
     render();
@@ -1239,55 +1263,20 @@ function applyTheme(config) {
     const fontColor = config.cor_fonte    || (isPaper ? '#1c1007'              : dark ? 'rgba(255,255,255,0.82)' : '#1e1b4b');
     const accent    = config.cor_destaque || (isPaper ? '#7c3a1a'              : dark ? '#a78bfa'                : '#7c3aed');
     const font      = config.font_family  || (isPaper ? 'Caveat'               : 'Outfit');
-    const fontSize  = isPaper ? '18px' : '14px';
+    const fontSize  = isPaper ? '15px' : '14px';
     const fontStack = isPaper ? 'cursive' : 'sans-serif';
-    const maxW      = config.max_largura  || 260;
+    const maxW      = config.max_largura  || 300;
 
     isPaperTheme         = isPaper;
     themeColors.link     = linkColor;
     themeColors.accent   = accent;
     themeColors.maxWidth = maxW;
 
-    // Atualiza variáveis CSS do root para adaptar UI inteira ao tema
-    const root = document.documentElement;
-    if (isPaper) {
-        root.style.setProperty('--bg-from',       '#fdf9ed');
-        root.style.setProperty('--bg-to',         '#f5f0e0');
-        root.style.setProperty('--text',          '#1c1007');
-        root.style.setProperty('--text-mid',      'rgba(28,16,7,0.55)');
-        root.style.setProperty('--text-dim',      'rgba(28,16,7,0.35)');
-        root.style.setProperty('--surface',       'rgba(0,0,0,0.04)');
-        root.style.setProperty('--surface-hover', 'rgba(0,0,0,0.07)');
-        root.style.setProperty('--glass',         'rgba(253,249,237,0.82)');
-        root.style.setProperty('--glass-border',  'rgba(120,80,40,0.18)');
-        root.style.setProperty('--border',        'rgba(0,0,0,0.10)');
-        root.style.setProperty('--accent',        accent);
-    } else if (!dark) {
-        root.style.setProperty('--bg-from',       '#ede9fe');
-        root.style.setProperty('--bg-to',         '#f5f3ff');
-        root.style.setProperty('--text',          '#1e1b4b');
-        root.style.setProperty('--text-mid',      'rgba(30,27,75,0.55)');
-        root.style.setProperty('--text-dim',      'rgba(30,27,75,0.35)');
-        root.style.setProperty('--surface',       'rgba(0,0,0,0.04)');
-        root.style.setProperty('--surface-hover', 'rgba(0,0,0,0.07)');
-        root.style.setProperty('--glass',         'rgba(237,233,254,0.82)');
-        root.style.setProperty('--glass-border',  'rgba(109,40,217,0.18)');
-        root.style.setProperty('--border',        'rgba(0,0,0,0.08)');
-        root.style.setProperty('--accent',        accent);
-    } else {
-        // Dark (padrão) — restaura valores originais
-        root.style.setProperty('--bg-from',       '#0d0b14');
-        root.style.setProperty('--bg-to',         '#130f22');
-        root.style.setProperty('--text',          'rgba(255,255,255,0.88)');
-        root.style.setProperty('--text-mid',      'rgba(255,255,255,0.5)');
-        root.style.setProperty('--text-dim',      'rgba(255,255,255,0.28)');
-        root.style.setProperty('--surface',       'rgba(255,255,255,0.04)');
-        root.style.setProperty('--surface-hover', 'rgba(255,255,255,0.07)');
-        root.style.setProperty('--glass',         'rgba(15,12,26,0.75)');
-        root.style.setProperty('--glass-border',  'rgba(167,139,250,0.15)');
-        root.style.setProperty('--border',        'rgba(255,255,255,0.07)');
-        root.style.setProperty('--accent',        accent);
-    }
+    // Apenas a cor de destaque é atualizada na UI (decorativa)
+    // As demais variáveis NÃO mudam — a UI sempre fica no modo escuro,
+    // independente do tema do mapa, para garantir legibilidade dos menus e painel.
+    document.documentElement.style.setProperty('--accent', accent);
+    document.documentElement.style.setProperty('--accent-dim', `${accent}1a`);
 
     // Fundo de papel pautado com margem azul
     const paperBg = [
@@ -1310,42 +1299,39 @@ function applyTheme(config) {
     const s = document.createElement('style');
     s.id = 'theme-css';
     s.textContent = `
-        /* Fundo do app — via variáveis CSS atualizadas por applyTheme() */
-        #viewer { background: ${isPaper ? paperBg : dark ? 'transparent' : '#f5f3ff'}; }
-        svg#markmap { background: transparent; }
-        .markmap-node-text {
+        #viewer svg#markmap { background: ${isPaper ? paperBg : 'transparent'}; }
+        #viewer .markmap-node-text {
             fill: ${fontColor} !important;
             font-family: '${font}', ${fontStack} !important;
             font-size: ${fontSize} !important;
             font-weight: ${isPaper ? '600' : '500'} !important;
         }
-        .markmap-node foreignObject div {
+        #viewer .markmap-node foreignObject div {
             color: ${fontColor} !important;
             font-family: '${font}', ${fontStack} !important;
             font-size: ${fontSize} !important;
             font-weight: ${isPaper ? '600' : '500'} !important;
         }
-        .markmap-link {
+        #viewer .markmap-link {
             stroke: ${linkColor} !important;
             stroke-width: ${isPaper ? '2px' : '1.5px'} !important;
             stroke-opacity: 1 !important;
             ${isPaper ? 'stroke-linecap: round !important; stroke-linejoin: round !important;' : ''}
         }
-        .markmap-node-circle {
+        #viewer .markmap-node-circle {
             fill: ${linkColor} !important;
             stroke: ${isPaper ? '#fdf9ed' : 'none'} !important;
-            ${isPaper ? 'stroke-width: 2px !important; r: 4px !important;' : ''}
+            ${isPaper ? 'stroke-width: 2px !important;' : ''}
         }
-        .markmap-accent .markmap-node-text { fill: ${accent} !important; font-weight: 700 !important; }
-        .markmap-accent rect { fill: ${accent} !important; }
-        .markmap-accent .markmap-node-circle { fill: ${accent} !important; }
-        .markmap-node > foreignObject,
-        .markmap-node > foreignObject > div {
+        #viewer .markmap-accent .markmap-node-text { fill: ${accent} !important; font-weight: 700 !important; }
+        #viewer .markmap-accent rect { fill: ${accent} !important; }
+        #viewer .markmap-accent .markmap-node-circle { fill: ${accent} !important; }
+        #viewer .markmap-node > foreignObject,
+        #viewer .markmap-node > foreignObject > div {
             visibility: visible !important;
             opacity: 1 !important;
         }
-        /* Esconde o sentinela (!!) */
-        [data-mm-hl] {
+        #viewer [data-mm-hl] {
             display: none !important;
             visibility: hidden !important;
             font-size: 0 !important;
@@ -1410,7 +1396,7 @@ async function render() {
                 autoFit: false,
                 duration: 450,
                 maxWidth: themeColors.maxWidth,
-                spacingVertical: 10,
+                spacingVertical: 20,
                 spacingHorizontal: 64,
                 paddingX: 14,
                 zoom: true,
@@ -1425,11 +1411,11 @@ async function render() {
             mm.setData(currentRoot);
         }
         mm.fit();
-        // Re-layout após o browser processar o CSS (evita sobreposição de nós)
-        requestAnimationFrame(() => requestAnimationFrame(() => {
+        // Re-layout com delay para garantir que o CSS foi processado antes da medição
+        setTimeout(() => {
             if (mm && currentRoot) { mm.setData(currentRoot); mm.fit(); }
-        }));
-        setTimeout(forceRecolorNodes, 520);
+            setTimeout(forceRecolorNodes, 520);
+        }, 80);
 
         if (currentFocusedNode) {
             centerOnNode(currentFocusedNode);
@@ -1452,15 +1438,15 @@ async function render() {
             color: (node) => (node.data?.content || node.content || '').includes('(!!)') ? themeColors.accent : themeColors.link
         });
         mm.setData(currentRoot);
-        // Re-layout após o browser processar o CSS (evita sobreposição de nós)
-        requestAnimationFrame(() => requestAnimationFrame(() => {
+        // Re-layout com delay para garantir que o CSS foi processado antes da medição
+        setTimeout(() => {
             if (!mm || !currentRoot) return;
             const svg2 = document.getElementById('markmap');
             const t2 = svg2 ? d3.zoomTransform(svg2) : null;
             mm.setData(currentRoot);
             if (t2 && svg2 && mm.zoom) requestAnimationFrame(() => d3.select(svg2).call(mm.zoom.transform, t2));
-        }));
-        setTimeout(forceRecolorNodes, 520);
+            setTimeout(forceRecolorNodes, 520);
+        }, 80);
 
         // Restaura a posição da câmera após setData
         if (savedTransform && svg && mm.zoom) {
