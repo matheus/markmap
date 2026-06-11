@@ -14,7 +14,7 @@
     <link rel="apple-touch-icon" href="icon-192.png">
     <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%230d0b14'/%3E%3Ccircle cx='16' cy='16' r='3.5' fill='%23a78bfa'/%3E%3Ccircle cx='6' cy='9' r='2' fill='%23a78bfa' opacity='.7'/%3E%3Ccircle cx='6' cy='23' r='2' fill='%23a78bfa' opacity='.7'/%3E%3Ccircle cx='26' cy='9' r='2' fill='%23c4b5fd' opacity='.6'/%3E%3Ccircle cx='26' cy='23' r='2' fill='%23c4b5fd' opacity='.6'/%3E%3Cline x1='13' y1='14' x2='8' y2='10' stroke='%23a78bfa' stroke-width='1.2' opacity='.6'/%3E%3Cline x1='13' y1='18' x2='8' y2='22' stroke='%23a78bfa' stroke-width='1.2' opacity='.6'/%3E%3Cline x1='19' y1='14' x2='24' y2='10' stroke='%23a78bfa' stroke-width='1.2' opacity='.6'/%3E%3Cline x1='19' y1='18' x2='24' y2='22' stroke='%23a78bfa' stroke-width='1.2' opacity='.6'/%3E%3C/svg%3E">
     <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500&display=swap">
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500&family=Caveat:wght@400;500;600;700&display=swap">
     <script src="https://cdn.jsdelivr.net/npm/d3@7"></script>
     <script src="https://cdn.jsdelivr.net/npm/markmap-lib@0.14.4/dist/browser/index.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/markmap-view@0.14.4/dist/index.js"></script>
@@ -514,6 +514,7 @@ const transformer = new Transformer([]);
 let mm = null;
 let currentRoot = null;
 let themeColors = { link: '', accent: '', maxWidth: 260 };
+let isPaperTheme = false;
 
 let maps = [];
 let activeId = null;
@@ -716,62 +717,66 @@ function extractConfig(md) {
 }
 
 function applyTheme(config) {
-    const dark = config.tema !== 'white';
-    const bg = dark ? 'transparent' : '#f5f3ff';
-    const linkColor = config.cor_linhas || (dark ? 'rgba(167,139,250,0.45)' : 'rgba(109,40,217,0.35)');
-    const fontColor = config.cor_fonte || (dark ? 'rgba(255,255,255,0.82)' : '#1e1b4b');
-    const accent = config.cor_destaque || (dark ? '#a78bfa' : '#7c3aed');
-    const font = config.font_family || 'Outfit';
-    const maxW = config.max_largura || 260;
+    const isPaper = config.tema === 'caneta';
+    const dark    = !isPaper && config.tema !== 'white';
 
-    themeColors.link = linkColor;
-    themeColors.accent = accent;
+    // Defaults por tema
+    const linkColor = config.cor_linhas   || (isPaper ? '#3b2a1e'              : dark ? 'rgba(167,139,250,0.45)' : 'rgba(109,40,217,0.35)');
+    const fontColor = config.cor_fonte    || (isPaper ? '#1c1007'              : dark ? 'rgba(255,255,255,0.82)' : '#1e1b4b');
+    const accent    = config.cor_destaque || (isPaper ? '#7c3a1a'              : dark ? '#a78bfa'                : '#7c3aed');
+    const font      = config.font_family  || (isPaper ? 'Caveat'               : 'Outfit');
+    const fontSize  = isPaper ? '18px' : '14px';   // Caveat lê melhor um pouco maior
+    const fontStack = isPaper ? 'cursive' : 'sans-serif';
+    const maxW      = config.max_largura  || 260;
+
+    isPaperTheme         = isPaper;
+    themeColors.link     = linkColor;
+    themeColors.accent   = accent;
     themeColors.maxWidth = maxW;
+
+    // Fundo de papel pautado com margem azul
+    const paperBg = [
+        'linear-gradient(90deg, transparent 64px, rgba(100,149,237,0.22) 64px, rgba(100,149,237,0.22) 66px, transparent 66px)',
+        'repeating-linear-gradient(transparent 0px, transparent 27px, rgba(180,140,100,0.18) 27px, rgba(180,140,100,0.18) 28px)',
+        '#fdf9ed'
+    ].join(', ');
 
     document.getElementById('theme-css')?.remove();
     const s = document.createElement('style');
     s.id = 'theme-css';
     s.textContent = `
-        #viewer { background: ${dark ? 'transparent' : bg}; }
+        #viewer { background: ${isPaper ? paperBg : dark ? 'transparent' : '#f5f3ff'}; }
         svg#markmap { background: transparent; }
-        /* SVG text nodes */
         .markmap-node-text {
             fill: ${fontColor} !important;
-            font-family: '${font}', sans-serif !important;
-            font-size: 14px !important;
-            font-weight: 500 !important;
+            font-family: '${font}', ${fontStack} !important;
+            font-size: ${fontSize} !important;
+            font-weight: ${isPaper ? '600' : '500'} !important;
         }
-        /* HTML text inside foreignObject (markmap's primary render mode) */
         .markmap-node foreignObject div {
             color: ${fontColor} !important;
-            font-family: '${font}', sans-serif !important;
-            font-size: 14px !important;
-            font-weight: 500 !important;
+            font-family: '${font}', ${fontStack} !important;
+            font-size: ${fontSize} !important;
+            font-weight: ${isPaper ? '600' : '500'} !important;
             white-space: normal !important;
             word-wrap: break-word !important;
             overflow-wrap: break-word !important;
-            line-height: 1.5 !important;
+            line-height: 1.55 !important;
         }
         .markmap-link {
             stroke: ${linkColor} !important;
-            stroke-width: 1.5px !important;
+            stroke-width: ${isPaper ? '2px' : '1.5px'} !important;
             stroke-opacity: 1 !important;
+            ${isPaper ? 'stroke-linecap: round !important; stroke-linejoin: round !important;' : ''}
         }
         .markmap-node-circle {
             fill: ${linkColor} !important;
-            stroke: none !important;
+            stroke: ${isPaper ? '#fdf9ed' : 'none'} !important;
+            ${isPaper ? 'stroke-width: 2px !important; r: 4px !important;' : ''}
         }
-        g[data-path*="(!!)"] .markmap-node-text {
-            fill: ${accent} !important;
-            font-weight: 700 !important;
-        }
-        g[data-path*="(!!)"] .markmap-node foreignObject div {
-            color: ${accent} !important;
-            font-weight: 700 !important;
-        }
-        g[data-path*="(!!)"] .markmap-node-circle {
-            fill: ${accent} !important;
-        }
+        g[data-path*="(!!)"] .markmap-node-text { fill: ${accent} !important; font-weight: 700 !important; }
+        g[data-path*="(!!)"] .markmap-node foreignObject div { color: ${accent} !important; font-weight: 700 !important; }
+        g[data-path*="(!!)"] .markmap-node-circle { fill: ${accent} !important; }
         .markmap-node > foreignObject,
         .markmap-node > foreignObject > div,
         .markmap-node > foreignObject > div > * {
@@ -830,10 +835,52 @@ async function render() {
     charCount.textContent = `${raw.length} chars`;
     setTimeout(forceRootVisible, 50);
     setTimeout(forceRootVisible, 500);
+    setTimeout(injectSketchFilter, 80);   // caneta theme
+    setTimeout(injectSketchFilter, 520);  // re-inject after animation
     if (currentFocusedNode) {
         centerOnNode(currentFocusedNode);
         highlightNode(currentFocusedNode);
     }
+}
+
+// ─── SKETCH FILTER (tema: caneta) ────────────────────────────────────────────
+function injectSketchFilter() {
+    const svg = document.getElementById('markmap');
+    if (!svg) return;
+
+    if (!isPaperTheme) {
+        // Remove filter se saiu do tema caneta
+        svg.querySelectorAll('.markmap-link[filter]').forEach(el => el.removeAttribute('filter'));
+        return;
+    }
+
+    // Garante que o elemento <defs> existe no SVG
+    let defs = svg.querySelector('defs');
+    if (!defs) {
+        defs = document.createElementNS('http://www.w3.org/2000/svg', 'defs');
+        svg.insertBefore(defs, svg.firstChild);
+    }
+
+    // Injeta o filtro de esboço uma única vez
+    if (!defs.querySelector('#sketch-filter')) {
+        const filter = document.createElementNS('http://www.w3.org/2000/svg', 'filter');
+        filter.id = 'sketch-filter';
+        filter.setAttribute('x', '-8%');
+        filter.setAttribute('y', '-8%');
+        filter.setAttribute('width', '116%');
+        filter.setAttribute('height', '116%');
+        // feTurbulence gera ruído fractal; feDisplacementMap aplica esse ruído
+        // como deslocamento nos pixels — resultado: linhas com tremor natural de caneta
+        filter.innerHTML =
+            '<feTurbulence type="fractalNoise" baseFrequency="0.035 0.028" numOctaves="4" seed="12" result="noise"/>' +
+            '<feDisplacementMap in="SourceGraphic" in2="noise" scale="2.8" xChannelSelector="R" yChannelSelector="G"/>';
+        defs.appendChild(filter);
+    }
+
+    // Aplica o filtro em todos os ramos do mapa
+    svg.querySelectorAll('.markmap-link').forEach(el => {
+        el.setAttribute('filter', 'url(#sketch-filter)');
+    });
 }
 
 function forceRootVisible() {
